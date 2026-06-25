@@ -1,0 +1,9 @@
+target/
+dist/
+*.swp
+*.swo
+.*.sw?
+.DS_Store
+*.pyc
+__pycache__/
+forge-core.tar.gz
