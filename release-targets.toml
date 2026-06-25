@@ -1,0 +1,21 @@
+# Forge — which binary gets built for which platform
+#
+# These are the static standalone binaries described in the distribution spec.
+# Cross-compile one like this:
+#
+#   rustup target add x86_64-unknown-linux-musl
+#   cargo build --release --target x86_64-unknown-linux-musl -p forge-cli
+#   ldd target/x86_64-unknown-linux-musl/release/forge
+#   # should say "not a dynamic executable" — musl links everything in
+#
+# Main target — tested in CI:
+x86_64-unknown-linux-musl = "forge-x86_64-unknown-linux-musl.tar.gz"
+
+# ARM builds — documented but not run in CI:
+#   rustup target add aarch64-unknown-linux-musl
+#   cargo build --release --target aarch64-unknown-linux-musl -p forge-cli
+# aarch64-unknown-linux-musl = "forge-aarch64-unknown-linux-musl.tar.gz"
+
+# macOS — defined as targets but no CI yet:
+# x86_64-apple-darwin = "forge-x86_64-apple-darwin.tar.gz"
+# aarch64-apple-darwin = "forge-aarch64-apple-darwin.tar.gz"
