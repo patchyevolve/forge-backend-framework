@@ -1,0 +1,12 @@
+forge_config_version = "1.0"
+
+[gateway]
+grpc_bind = "127.0.0.1:9090"
+http_bind = "127.0.0.1:9091"
+
+[log]
+level = "info"
+
+[plugins]
+# Resolved relative to this forge.toml's directory (fixed in ConfigLoader)
+manifest_dir = "plugins"

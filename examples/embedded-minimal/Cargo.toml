@@ -1,0 +1,10 @@
+[package]
+name = "embedded-minimal"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+forge-core = { path = "../../crates/forge-core" }
+tokio = { workspace = true }
+bytes.workspace = true

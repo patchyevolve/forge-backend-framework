@@ -1,0 +1,21 @@
+forge_manifest_version = "1.0"
+
+[plugin]
+name = "echo-rs"
+version = "0.1.0"
+description = "Echo plugin — returns the payload it receives"
+protocol_version = "1.0"
+
+[transport]
+shape = "server"
+address = "http://127.0.0.1:50051"
+
+[lifecycle]
+restart_policy = "on-failure"
+health_check_interval_ms = 5000
+health_check_failure_threshold = 3
+drain_grace_period_ms = 5000
+
+[capabilities]
+provides = ["forge.example.echo@1.0"]
+requires = []

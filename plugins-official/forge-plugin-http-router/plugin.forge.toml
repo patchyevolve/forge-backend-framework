@@ -1,0 +1,21 @@
+forge_manifest_version = "1.0"
+
+[plugin]
+name = "http-router"
+version = "0.1.0"
+description = "HTTP router plugin — routes requests to registered capabilities"
+protocol_version = "1.0"
+
+[transport]
+shape = "server"
+address = "http://127.0.0.1:50054"
+
+[lifecycle]
+restart_policy = "on-failure"
+health_check_interval_ms = 5000
+health_check_failure_threshold = 3
+drain_grace_period_ms = 5000
+
+[capabilities]
+provides = ["forge.http.route@1.0"]
+requires = ["forge.auth.verify@1.0", "forge.data.query@1.0", "forge.data.write@1.0"]

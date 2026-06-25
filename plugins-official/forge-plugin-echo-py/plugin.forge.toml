@@ -1,0 +1,23 @@
+forge_manifest_version = "1.0"
+
+[plugin]
+name = "echo-py"
+version = "0.1.0"
+description = "Minimal echo plugin (Python, Shape B)"
+protocol_version = "1.0"
+
+[transport]
+shape = "managed-subprocess"
+executable = "/usr/bin/python3"
+args = ["-u", "plugin.py"]
+working_dir = "."
+
+[lifecycle]
+restart_policy = "on-failure"
+health_check_interval_ms = 5000
+health_check_failure_threshold = 3
+drain_grace_period_ms = 5000
+
+[capabilities]
+provides = ["forge.example.echo@1.0"]
+requires = []

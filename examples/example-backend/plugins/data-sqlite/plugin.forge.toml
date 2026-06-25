@@ -1,0 +1,21 @@
+forge_manifest_version = "1.0"
+
+[plugin]
+name = "data-sqlite"
+version = "0.1.0"
+description = "SQLite-backed persistence plugin (reference implementation)"
+protocol_version = "1.0"
+
+[transport]
+shape = "server"
+address = "http://127.0.0.1:50053"
+
+[lifecycle]
+restart_policy = "on-failure"
+health_check_interval_ms = 5000
+health_check_failure_threshold = 3
+drain_grace_period_ms = 5000
+
+[capabilities]
+provides = ["forge.data.query@1.0", "forge.data.write@1.0"]
+requires = []
