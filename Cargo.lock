@@ -1744,6 +1744,56 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "tutorial-count"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "tutorial-ingest"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "tutorial-process"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "tutorial-store"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"

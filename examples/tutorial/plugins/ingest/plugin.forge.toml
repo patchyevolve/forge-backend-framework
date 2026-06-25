@@ -1,0 +1,18 @@
+forge_manifest_version = "1.0"
+
+[plugin]
+name = "ingest"
+version = "1.0.0"
+description = "Ingests and stores data in memory — the source dataset"
+protocol_version = "1.0"
+
+[transport]
+shape = "server"
+address = "http://127.0.0.1:51051"
+
+[lifecycle]
+restart_policy = "on-failure"
+
+[capabilities]
+provides = ["forge.example.ingest.write@1.0", "forge.example.ingest.query@1.0"]
+requires = []

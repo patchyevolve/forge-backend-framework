@@ -1,0 +1,18 @@
+forge_manifest_version = "1.0"
+
+[plugin]
+name = "process"
+version = "1.0.0"
+description = "Transforms ingested data and stores the result"
+protocol_version = "1.0"
+
+[transport]
+shape = "server"
+address = "http://127.0.0.1:51053"
+
+[lifecycle]
+restart_policy = "on-failure"
+
+[capabilities]
+provides = ["forge.example.process@1.0"]
+requires = ["forge.example.ingest.query@1.0", "forge.example.store.put@1.0"]
