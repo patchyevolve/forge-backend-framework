@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Polyglot backend microkernel — core lifecycle, registry, bus, and embedding API"
-repository = "https://github.com/anomalyco/forge"
+repository = "https://github.com/patchyevolve/forge-backend-framework"
 
 [features]
 default = ["tonic"]

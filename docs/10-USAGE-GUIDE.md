@@ -60,7 +60,7 @@ Forge is **not** an HTTP framework, a service mesh, or an event bus. It's a thin
 
 ```bash
 # Quick install (requires curl and sha256sum):
-curl -fsSL https://github.com/patchyevolve/forge-backend-framework/releases/download/v1.0.0/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/patchyevolve/forge-backend-framework/master/install.sh | sh
 
 # This installs the `forge` binary to ~/.local/bin/forge.
 # Run as root to install to /usr/local/bin/forge instead.
@@ -280,8 +280,8 @@ Example output:
 === Forge Kernel Status ===
 
 Plugins:
-  echo-rs  [Running]
-  auth-jwt  [Running]
+  echo-rs  [Ready]
+  auth-jwt  [Ready]
 
 Capabilities:
   forge.example.echo@1.0  (provided by echo-rs)
@@ -658,8 +658,8 @@ Response:
 ```json
 {
   "plugins": [
-    { "name": "echo-rs", "state": "Running" },
-    { "name": "auth-jwt", "state": "Running" }
+    { "name": "echo-rs", "state": "Ready" },
+    { "name": "auth-jwt", "state": "Ready" }
   ],
   "capabilities": [
     { "name": "forge.example.echo", "version": "1.0", "plugin": "echo-rs" },
@@ -821,7 +821,7 @@ The repo includes a complete example backend with multiple plugins and a startup
 ### Build everything
 
 ```bash
-cd forge-core/
+cd forge-core/  # the workspace root — the crate directory is still named forge-core/
 cargo build --release
 ```
 
@@ -895,12 +895,12 @@ bash test_committed_backend.sh
 A plugin moves through these states:
 
 ```
-Discovered → Connecting → Registered → Running
-                                        ↓
-                                    Unhealthy
-                                        ↓
+Discovered → Connecting → Handshaking → Ready
+                                       ↓
+                                    Degraded
+                                       ↓
                                     Draining
-                                        ↓
+                                       ↓
                                      Stopped
 ```
 

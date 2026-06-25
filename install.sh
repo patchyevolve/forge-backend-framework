@@ -1,6 +1,6 @@
 #!/bin/sh
 # Forge — one-liner installer
-# Run it with: curl -fsSL https://github.com/anomalyco/forge/releases/latest/download/install.sh | sh
+# Run it with: curl -fsSL https://raw.githubusercontent.com/patchyevolve/forge-backend-framework/master/install.sh | sh
 #
 # What it does:
 #   1. Figures out your OS and CPU type
@@ -10,7 +10,7 @@
 
 set -eu
 
-REPO="anomalyco/forge"
+REPO="patchyevolve/forge-backend-framework"
 VERSION="${FORGE_VERSION:-latest}"
 INSTALL_DIR="${FORGE_INSTALL_DIR:-}"
 

@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Rust SDK for writing Forge plugins"
-repository = "https://github.com/anomalyco/forge"
+repository = "https://github.com/patchyevolve/forge-backend-framework"
 
 [dependencies]
 forge-proto = { version = "1.0", path = "../forge-proto" }

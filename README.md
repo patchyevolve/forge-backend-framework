@@ -36,7 +36,7 @@ Forge is not an HTTP framework, not a service mesh, and not an event bus. It is 
 
 ```bash
 # download the binary
-curl -fsSL https://github.com/anomalyco/forge/releases/latest/download/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/patchyevolve/forge-backend-framework/master/install.sh | sh
 
 # run with the example backend
 forge run --config examples/example-backend/forge.toml
