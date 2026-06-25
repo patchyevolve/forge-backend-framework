@@ -1,0 +1,35 @@
+[package]
+name = "forge-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Polyglot backend microkernel — core lifecycle, registry, bus, and embedding API"
+repository = "https://github.com/anomalyco/forge"
+
+[features]
+default = ["tonic"]
+tonic = ["dep:tonic"]
+
+# Turn off gRPC with the "minimal" feature set for constrained environments.
+# Add to Cargo.toml like: forge-core = { default-features = false }
+# Without gRPC you lose: tonic-based networking and the plugin Manager.
+# You keep: Registry, in-process Bus, config loading, lifecycle state machine.
+
+[dependencies]
+tokio.workspace = true
+dashmap.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+forge-proto = { version = "1.0", path = "../forge-proto" }
+semver.workspace = true
+bytes.workspace = true
+tonic = { workspace = true, optional = true }
+uuid.workspace = true
+tokio-stream.workspace = true
+
+[dev-dependencies]
+temp-env = "0.3"
