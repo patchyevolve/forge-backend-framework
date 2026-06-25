@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,18 +17,15 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt, clippy
-      - name: Format check
-        run: cargo fmt --check
-      - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Run tests
-        run: cargo test
+      - run: cargo test
 
   build:
     runs-on: ubuntu-latest
@@ -42,39 +39,61 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Build (${{ matrix.target.name }})
-        run: cargo build ${{ matrix.target.flags }}
+      - run: cargo build ${{ matrix.target.flags }}
 
   publish-dry-run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Package forge-proto
-        run: cargo package -p forge-proto
-      - name: Package forge-plugin-sdk-rust
-        run: cargo package -p forge-plugin-sdk-rust
-      - name: Package forge-backend
-        run: cargo package -p forge-backend
+      - run: cargo package -p forge-proto
+      - run: cargo package -p forge-plugin-sdk-rust
+      - run: cargo package -p forge-backend
 
   offline-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Cache dependencies
-        run: cargo fetch
-      - name: Offline build
-        run: cargo build --offline
+      - run: cargo fetch
+      - run: cargo build --offline
 
-  integration:
+  round-trip:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Build all binaries
-        run: cargo build
-      - name: Committed backend test
-        run: bash test_committed_backend.sh
-      - name: Offline build proof
-        run: bash test_offline_build.sh
+      - run: cargo build -p forge-plugin-echo-rs -p forge-cli --release
+      - run: bash test_round_trip.sh
+
+  round-trip-committed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build -p forge-plugin-echo-rs -p forge-cli --release
+      - run: bash test_committed_round_trip.sh
+
+  integration-committed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build -p forge-plugin-echo-rs -p forge-plugin-auth-jwt -p forge-plugin-data-sqlite -p forge-plugin-http-router -p forge-cli --release
+      - run: bash test_committed_backend.sh
+
+  integration-generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build -p forge-plugin-echo-rs -p forge-plugin-auth-jwt -p forge-plugin-data-sqlite -p forge-plugin-http-router -p forge-cli --release
+      - run: bash test_example_backend.sh
+
+  kill-resilience:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build -p forge-plugin-echo-rs -p forge-plugin-auth-jwt -p forge-plugin-data-sqlite -p forge-plugin-http-router -p forge-cli --release
+      - run: bash test_kill_resilience.sh
