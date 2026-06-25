@@ -38,10 +38,24 @@ impl Kernel {
         }
     }
 
+    /// Returns a reference to the kernel's capability registry.
+    ///
+    /// ```
+    /// # use forge_core::kernel::{Kernel, KernelConfig};
+    /// let kernel = Kernel::start(KernelConfig::default());
+    /// let _ = kernel.registry();
+    /// ```
     pub fn registry(&self) -> &Registry {
         &self.registry
     }
 
+    /// Returns a reference to the kernel's message bus.
+    ///
+    /// ```
+    /// # use forge_core::kernel::{Kernel, KernelConfig};
+    /// let kernel = Kernel::start(KernelConfig::default());
+    /// let _ = kernel.bus();
+    /// ```
     pub fn bus(&self) -> &Bus {
         &self.bus
     }

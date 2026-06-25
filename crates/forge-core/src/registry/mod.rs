@@ -4,16 +4,22 @@ use std::sync::Arc;
 /// An opaque handle for a plugin instance — the bus uses this to route invocations to the right connection.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PluginHandle {
+    /// Unique instance identifier, set when the plugin starts.
     pub instance_id: String,
+    /// Name of the plugin, used for routing and display.
     pub plugin_name: String,
 }
 
 /// What you get back when listing registered capabilities.
 #[derive(Debug, Clone)]
 pub struct CapabilitySummary {
+    /// Fully-qualified capability name (e.g. "forge.example.echo").
     pub name: String,
+    /// Semver version this plugin registered for this capability.
     pub version: semver::Version,
+    /// Name of the plugin that registered this capability.
     pub plugin_name: String,
+    /// Instance ID of the plugin providing this capability.
     pub plugin_instance_id: String,
 }
 
@@ -36,12 +42,21 @@ pub struct Registry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum ResolutionStrategy {
+    /// Use the first plugin that registered the capability.
     #[default]
     FirstReadyWins,
+    /// Distribute invocations across matching plugins.
     RoundRobin,
 }
 
 impl Registry {
+    /// Create an empty registry with the default [`ResolutionStrategy::FirstReadyWins`].
+    ///
+    /// ```
+    /// # use forge_core::registry::Registry;
+    /// let reg = Registry::new();
+    /// assert!(reg.list_capabilities().is_empty());
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -50,6 +65,13 @@ impl Registry {
         }
     }
 
+    /// Create an empty registry with a specific resolution strategy.
+    ///
+    /// ```
+    /// # use forge_core::registry::{Registry, ResolutionStrategy};
+    /// let reg = Registry::with_resolution(ResolutionStrategy::RoundRobin);
+    /// assert!(reg.list_capabilities().is_empty());
+    /// ```
     #[must_use]
     pub fn with_resolution(strategy: ResolutionStrategy) -> Self {
         Self {

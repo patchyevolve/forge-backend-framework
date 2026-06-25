@@ -35,11 +35,17 @@ pub type HandlerFn = Arc<
 /// An invocation moving through the bus.
 #[derive(Debug, Clone)]
 pub struct Invocation {
+    /// Unique identifier for this invocation, used for tracing and correlating responses.
     pub request_id: String,
+    /// The capability name being invoked.
     pub capability: String,
+    /// Semver constraint the target plugin's capability version must satisfy.
     pub version_constraint: semver::VersionReq,
+    /// Opaque bytes payload carried with the invocation.
     pub payload: bytes::Bytes,
+    /// Key-value metadata bag, forwarded to the plugin.
     pub metadata: std::collections::HashMap<String, String>,
+    /// Absolute instant after which the invocation is considered expired.
     pub deadline: Instant,
 }
 
@@ -61,18 +67,23 @@ impl Invocation {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum InvocationError {
+    /// The requested capability has no registered plugin.
     #[error("capability not found: {0}")]
     NotFound(String),
 
+    /// The invocation's deadline passed before it could complete.
     #[error("deadline exceeded")]
     DeadlineExceeded,
 
+    /// The plugin reported itself as degraded or unhealthy.
     #[error("plugin is unhealthy (degraded)")]
     PluginUnhealthy,
 
+    /// Something went wrong at the transport layer (gRPC or otherwise).
     #[error("transport error: {0}")]
     TransportError(String),
 
+    /// The plugin itself returned an error with a code and message.
     #[error("plugin error: code={code}, message={message}")]
     PluginError { code: String, message: String },
 }
@@ -81,7 +92,9 @@ pub enum InvocationError {
 #[cfg(feature = "tonic")]
 #[derive(Debug, Clone)]
 pub struct PluginConnection {
+    /// The plugin handle identifying which plugin this connection belongs to.
     pub handle: PluginHandle,
+    /// Tonic channel for gRPC communication with this plugin.
     pub channel: Channel,
 }
 
@@ -104,6 +117,14 @@ impl std::fmt::Debug for Bus {
 }
 
 impl Bus {
+    /// Create a new bus that uses the given registry to resolve capabilities.
+    ///
+    /// ```
+    /// # use forge_core::bus::Bus;
+    /// # use forge_core::registry::Registry;
+    /// let registry = Registry::new();
+    /// let bus = Bus::new(registry);
+    /// ```
     #[must_use]
     pub fn new(registry: Registry) -> Self {
         Self {

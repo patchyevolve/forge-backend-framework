@@ -46,6 +46,24 @@ pub struct Manager {
 }
 
 impl Manager {
+    /// Create a new lifecycle manager.
+    ///
+    /// Spawns a background task that processes crash/restart requests with
+    /// exponential backoff.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use forge_core::lifecycle::Manager;
+    /// use forge_core::registry::Registry;
+    /// use forge_core::bus::Bus;
+    ///
+    /// # async fn example() {
+    /// let registry = Registry::new();
+    /// let bus = Bus::new(registry.clone());
+    /// let manager = Manager::new(registry, bus);
+    /// # }
+    /// ```
     #[must_use]
     pub fn new(registry: Registry, bus: Bus) -> Self {
         let plugins: Arc<Mutex<HashMap<String, ManagedPlugin>>> =
@@ -153,6 +171,21 @@ impl Manager {
     }
 
     /// Fire up every discovered plugin in parallel.
+    ///
+    /// Each plugin is spawned as a separate tokio task and the method
+    /// waits for all of them to finish. Start failures are logged but
+    /// don't block other plugins.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use forge_core::lifecycle::Manager;
+    /// use forge_core::config::DiscoveredPlugin;
+    ///
+    /// # async fn example(manager: Manager, plugins: Vec<DiscoveredPlugin>) {
+    /// manager.start_all(plugins).await;
+    /// # }
+    /// ```
     pub async fn start_all(&self, discovered: Vec<DiscoveredPlugin>) {
         let mut handles = Vec::new();
         for plugin in discovered {

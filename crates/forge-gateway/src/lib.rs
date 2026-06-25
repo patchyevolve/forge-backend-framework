@@ -17,6 +17,9 @@ pub struct Gateway {
 }
 
 impl Gateway {
+    /// Build the gateway from its four dependencies. You'll need a [`ForgeConfig`] for
+    /// bind addresses, a [`Registry`] for capability lookups, a [`Bus`] for dispatching
+    /// invocations, and a [`Manager`] for lifecycle control.
     pub fn new(config: ForgeConfig, registry: Registry, bus: Bus, manager: Manager) -> Self {
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
@@ -62,6 +65,11 @@ impl Gateway {
         Ok(())
     }
 
+    /// Signal both listeners to stop. Gracefully drains in-flight requests before returning.
+    ///
+    /// ```ignore
+    /// gateway.shutdown();
+    /// ```
     pub fn shutdown(&self) {
         let _ = self.shutdown_tx.send(true);
     }

@@ -10,18 +10,31 @@ use forge_proto::{
     HealthCheckResponse, InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
 };
 
+/// Re-export of [`async_trait`] so plugin authors don't need to depend on it directly.
 pub use async_trait::async_trait;
 
 /// Something this plugin can do.
 #[derive(Debug, Clone)]
 pub struct Capability {
+    /// Machine-readable name, e.g. `"builtin:credential:list"`.
     pub name: String,
+    /// Semver version of this capability.
     pub version: String,
+    /// URL or path to a JSON Schema describing valid inputs.
     pub input_schema_ref: String,
+    /// URL or path to a JSON Schema describing valid outputs.
     pub output_schema_ref: String,
 }
 
 impl Capability {
+    /// Create a new capability with the given name and version.
+    ///
+    /// ```rust
+    /// # use forge_plugin_sdk_rust::Capability;
+    /// let cap = Capability::new("my:action", "1.0.0");
+    /// assert_eq!(cap.name, "my:action");
+    /// assert_eq!(cap.version, "1.0.0");
+    /// ```
     pub fn new(name: impl Into<String>, version: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -46,21 +59,35 @@ impl From<Capability> for ProtoCapability {
 /// What gets passed to a plugin's invoke handler.
 #[derive(Debug, Clone)]
 pub struct InvokeContext {
+    /// Unique identifier for this invocation, used for tracing across plugins.
     pub request_id: String,
+    /// Name of the capability being invoked.
     pub capability: String,
+    /// Opaque payload bytes (typically JSON or protobuf).
     pub payload: Vec<u8>,
+    /// Key-value metadata bag forwarded by the caller.
     pub metadata: HashMap<String, String>,
 }
 
 /// Error type that invoke handlers return.
 #[derive(Debug, Clone)]
 pub struct PluginError {
+    /// Machine-readable error code, e.g. `"NOT_FOUND"`, `"TRANSPORT_ERROR"`.
     pub code: String,
+    /// Human-readable description of what went wrong.
     pub message: String,
+    /// Arbitrary structured details for the caller.
     pub details: HashMap<String, String>,
 }
 
 impl PluginError {
+    /// Shorthand for a 404-style error.
+    ///
+    /// ```rust
+    /// # use forge_plugin_sdk_rust::PluginError;
+    /// let err = PluginError::not_found("capability not registered");
+    /// assert_eq!(err.code, "NOT_FOUND");
+    /// ```
     pub fn not_found(message: impl Into<String>) -> Self {
         Self {
             code: "NOT_FOUND".into(),
@@ -94,12 +121,71 @@ pub type InvokeResult = Result<Vec<u8>, PluginError>;
 /// The main trait — implement this to make a plugin.
 #[async_trait]
 pub trait Plugin: Send + Sync + 'static {
+    /// Advertise the capabilities this plugin provides.
+    /// Called by the kernel at registration time.
+    ///
+    /// ```rust
+    /// # use forge_plugin_sdk_rust::{Plugin, Capability};
+    /// # struct MyPlugin;
+    /// # #[async_trait::async_trait]
+    /// # impl Plugin for MyPlugin {
+    /// fn capabilities(&self) -> Vec<Capability> {
+    ///     vec![Capability::new("my:action", "1.0.0")]
+    /// }
+    /// # async fn invoke(&self, _: forge_plugin_sdk_rust::InvokeContext) -> forge_plugin_sdk_rust::InvokeResult { unimplemented!() }
+    /// # async fn health_check(&self) -> bool { true }
+    /// # }
+    /// ```
     fn capabilities(&self) -> Vec<Capability>;
 
+    /// Handle an invocation for one of the advertised capabilities.
+    ///
+    /// ```no_run
+    /// # use forge_plugin_sdk_rust::{Plugin, Capability, InvokeContext, InvokeResult};
+    /// # struct MyPlugin;
+    /// # #[async_trait::async_trait]
+    /// # impl Plugin for MyPlugin {
+    /// async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
+    ///     println!("invoked: {}", ctx.capability);
+    ///     Ok(ctx.payload)
+    /// }
+    /// # fn capabilities(&self) -> Vec<Capability> { vec![] }
+    /// # async fn health_check(&self) -> bool { true }
+    /// # }
+    /// ```
     async fn invoke(&self, ctx: InvokeContext) -> InvokeResult;
 
+    /// Return `false` to signal the kernel that this plugin is unhealthy
+    /// and should be drained.
+    ///
+    /// ```no_run
+    /// # use forge_plugin_sdk_rust::{Plugin, Capability, InvokeContext, InvokeResult};
+    /// # struct MyPlugin;
+    /// # #[async_trait::async_trait]
+    /// # impl Plugin for MyPlugin {
+    /// async fn health_check(&self) -> bool { true }
+    /// # fn capabilities(&self) -> Vec<Capability> { vec![] }
+    /// # async fn invoke(&self, _: InvokeContext) -> InvokeResult { unimplemented!() }
+    /// # }
+    /// ```
     async fn health_check(&self) -> bool;
 
+    /// Graceful shutdown hook — called before the kernel forcefully stops
+    /// the plugin. The default implementation is a no-op.
+    ///
+    /// ```no_run
+    /// # use forge_plugin_sdk_rust::{Plugin, Capability, InvokeContext, InvokeResult};
+    /// # struct MyPlugin;
+    /// # #[async_trait::async_trait]
+    /// # impl Plugin for MyPlugin {
+    /// async fn on_drain(&self) {
+    ///     tracing::info!("shutting down gracefully");
+    /// }
+    /// # fn capabilities(&self) -> Vec<Capability> { vec![] }
+    /// # async fn invoke(&self, _: InvokeContext) -> InvokeResult { unimplemented!() }
+    /// # async fn health_check(&self) -> bool { true }
+    /// # }
+    /// ```
     async fn on_drain(&self) {}
 }
 
@@ -174,6 +260,19 @@ pub struct PluginServer<P: Plugin> {
 }
 
 impl<P: Plugin> PluginServer<P> {
+    /// Wrap a [`Plugin`] implementation ready for serving.
+    ///
+    /// ```rust
+    /// # use forge_plugin_sdk_rust::{Plugin, PluginServer, Capability, InvokeContext, InvokeResult};
+    /// # struct MyPlugin;
+    /// # #[async_trait::async_trait]
+    /// # impl Plugin for MyPlugin {
+    /// # fn capabilities(&self) -> Vec<Capability> { vec![] }
+    /// # async fn invoke(&self, _: InvokeContext) -> InvokeResult { unimplemented!() }
+    /// # async fn health_check(&self) -> bool { true }
+    /// # }
+    /// let server = PluginServer::new(MyPlugin);
+    /// ```
     #[must_use]
     pub fn new(plugin: P) -> Self {
         Self { plugin }
@@ -224,6 +323,14 @@ pub struct KernelClient {
 }
 
 impl KernelClient {
+    /// Establish a gRPC connection to the Forge kernel.
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), anyhow::Error> {
+    /// let client = forge_plugin_sdk_rust::KernelClient::connect("http://127.0.0.1:50051").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn connect(grpc_addr: &str) -> Result<Self, anyhow::Error> {
         let channel = Endpoint::new(grpc_addr.to_string())?.connect().await?;
         Ok(Self { channel })

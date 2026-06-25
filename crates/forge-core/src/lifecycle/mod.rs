@@ -1,16 +1,43 @@
+/// Tracks where a plugin is in its lifecycle.
+///
+/// Plugins move through a mostly-linear progression:
+/// `Discovered → Connecting → Handshaking → Ready`, then optionally
+/// `Degraded` (health failure), `Draining` (graceful shutdown), or
+/// `Stopped`. A stopped plugin can re-enter at `Discovered` to restart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum PluginState {
+    /// Config loaded, process not yet started.
     Discovered,
+    /// Dialing the plugin's RPC endpoint.
     Connecting,
+    /// Connection established, performing the Register handshake.
     Handshaking,
+    /// Healthy, capabilities registered, ready to serve.
     Ready,
+    /// Health checks failing — plugin is running but degraded.
     Degraded,
+    /// Drain RPC sent; waiting for graceful shutdown.
     Draining,
+    /// Exited or killed. May restart via [`Discovered`](PluginState::Discovered).
     Stopped,
 }
 
 impl PluginState {
+    /// Attempt a state transition.
+    ///
+    /// Returns `Ok(target)` if the move is permitted by the lifecycle
+    /// state machine, or [`InvalidTransition`] describing the illegal
+    /// from → to pair.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use forge_core::lifecycle::PluginState;
+    ///
+    /// let next = PluginState::Discovered.transition(PluginState::Connecting);
+    /// assert_eq!(next, Ok(PluginState::Connecting));
+    /// ```
     pub fn transition(self, target: PluginState) -> Result<PluginState, InvalidTransition> {
         use PluginState::*;
         match (self, target) {
@@ -38,10 +65,14 @@ impl PluginState {
     }
 }
 
+/// Returned by [`PluginState::transition`] when the requested move isn't
+/// allowed by the lifecycle state machine.
 #[derive(Debug, PartialEq)]
 #[non_exhaustive]
 pub struct InvalidTransition {
+    /// The state we tried to transition from.
     pub from: PluginState,
+    /// The state we tried to transition to.
     pub to: PluginState,
 }
 
@@ -56,6 +87,7 @@ impl std::error::Error for InvalidTransition {}
 #[cfg(feature = "tonic")]
 mod manager;
 #[cfg(feature = "tonic")]
+#[doc(inline)]
 pub use manager::Manager;
 
 #[cfg(test)]

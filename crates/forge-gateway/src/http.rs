@@ -12,6 +12,8 @@ use forge_core::bus::{Bus, Invocation, InvocationError};
 use forge_core::lifecycle::Manager;
 use forge_core::registry::Registry;
 
+/// HTTP (REST) gateway — exposes health, status, invoke, and plugin-management
+/// endpoints. Thin wrapper around an axum server, no business logic.
 pub struct HttpGateway {
     bind: String,
     _tls: bool,
@@ -23,6 +25,9 @@ pub struct HttpGateway {
 }
 
 impl HttpGateway {
+    /// Build the HTTP gateway. You'll need a bind address, a TLS flag, a [`Registry`],
+    /// a [`Bus`], a [`Manager`], a shutdown receiver, and the kernel gRPC address so
+    /// the gateway can tell plugins how to call each other.
     pub fn new(
         bind: String,
         tls: bool,
@@ -43,6 +48,8 @@ impl HttpGateway {
         }
     }
 
+    /// Start the HTTP server. Blocks until the shutdown signal is received, then
+    /// drains in-flight requests gracefully.
     pub async fn serve(self) -> anyhow::Result<()> {
         let addr: std::net::SocketAddr = self.bind.parse()?;
 

@@ -6,50 +6,64 @@ use serde::Deserialize;
 /// The main kernel config, deserialized from a forge.toml file.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ForgeConfig {
+    /// TOML key: `forge_config_version`. Must be `"1.x"` — the loader rejects anything else.
     #[serde(default = "default_forge_config_version")]
     pub forge_config_version: String,
 
+    /// TOML key: `[gateway]`. gRPC/HTTP gateway bind addresses and TLS settings.
     #[serde(default)]
     pub gateway: GatewayConfig,
 
+    /// TOML key: `[log]`. Log level configuration.
     #[serde(default)]
     pub log: LogConfig,
 
+    /// TOML key: `[plugins]`. Plugin manifest directory and live-reload settings.
     #[serde(default)]
     pub plugins: PluginsConfig,
 }
 
+/// Gateway network settings — controls the gRPC and HTTP listeners.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GatewayConfig {
+    /// gRPC listener address. Default: `127.0.0.1:9090`.
     #[serde(default = "default_grpc_bind")]
     pub grpc_bind: String,
 
+    /// HTTP health/readiness listener address. Default: `127.0.0.1:9091`.
     #[serde(default = "default_http_bind")]
     pub http_bind: String,
 
+    /// Enable TLS for both gRPC and HTTP listeners. Default: `false`.
     #[serde(default)]
     pub tls: bool,
 
+    /// Path to the TLS certificate file. Required when `tls = true`.
     #[serde(default)]
     pub tls_cert_path: Option<String>,
 
+    /// Path to the TLS private key file. Required when `tls = true`.
     #[serde(default)]
     pub tls_key_path: Option<String>,
 }
 
+/// Logging configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct LogConfig {
+    /// Log level (e.g. `"trace"`, `"debug"`, `"info"`, `"warn"`, `"error"`). Default: `"info"`.
     #[serde(default = "default_log_level")]
     pub level: String,
 }
 
+/// Plugin discovery and hot-reload settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PluginsConfig {
+    /// Directory to scan for plugin manifests (`plugin.forge.toml`). Default: `./plugins`.
     #[serde(default = "default_manifest_dir")]
     pub manifest_dir: String,
 
-    #[serde(default)]
     /// Check for manifest changes every 3s and hot-reload any affected plugins.
+    #[serde(default)]
     pub watch: bool,
 }
 
@@ -116,47 +130,63 @@ impl Default for ForgeConfig {
 /// A plugin manifest discovered on disk (plugin.forge.toml).
 #[derive(Debug, Clone, Deserialize)]
 pub struct PluginManifest {
+    /// Manifest schema version. Must be `"1.x"`.
     pub forge_manifest_version: String,
 
+    /// Metadata about the plugin (name, version, description, protocol).
     pub plugin: PluginManifestMeta,
 
+    /// How the kernel should communicate with this plugin (server socket or managed subprocess).
     #[serde(default)]
     pub transport: PluginTransport,
 
+    /// Restart, health-check, and drain policies for this plugin.
     #[serde(default)]
     pub lifecycle: PluginLifecycleConfig,
 
+    /// Capabilities this plugin provides and requires from other plugins.
     #[serde(default)]
     pub capabilities: PluginCapabilitiesDecl,
 
+    /// Environment variables forwarded to the plugin's process.
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
 }
 
+/// Metadata section `[plugin]` of a `plugin.forge.toml`.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PluginManifestMeta {
+    /// Unique plugin name (e.g. `"echo-rs"`).
     pub name: String,
+    /// Semantic version of the plugin.
     pub version: String,
 
+    /// Human-readable description.
     #[serde(default)]
     pub description: String,
 
+    /// Forge protocol version this plugin speaks. Must be `"1.x"`.
     pub protocol_version: String,
 }
 
+/// How the kernel transports messages to/from the plugin.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "shape")]
 #[non_exhaustive]
 pub enum PluginTransport {
+    /// Plugin listens on a known address (e.g. `"unix:///tmp/forge-plugin.sock"`).
     #[serde(rename = "server")]
     Server { address: String },
 
+    /// Plugin is spawned as a subprocess and communicates over stdio.
     #[serde(rename = "managed-subprocess")]
     ManagedSubprocess {
+        /// Path to the executable.
         executable: String,
+        /// Command-line arguments.
         #[serde(default)]
         args: Vec<String>,
-
+        /// Working directory for the subprocess.
         #[serde(default)]
         working_dir: Option<String>,
     },
@@ -170,26 +200,34 @@ impl Default for PluginTransport {
     }
 }
 
+/// Restart, health-check, and graceful-shutdown policy for a plugin.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PluginLifecycleConfig {
+    /// When to restart: `"on-failure"`, `"always"`, or `"never"`. Default: `"on-failure"`.
     #[serde(default = "default_restart_policy")]
     pub restart_policy: String,
 
+    /// Initial backoff delay in ms before the first restart. Default: `500`.
     #[serde(default = "default_backoff_initial_ms")]
     pub restart_backoff_initial_ms: u64,
 
+    /// Maximum backoff delay in ms (caps exponential growth). Default: `30_000`.
     #[serde(default = "default_backoff_max_ms")]
     pub restart_backoff_max_ms: u64,
 
+    /// Maximum consecutive restart attempts before giving up. Default: `5`.
     #[serde(default = "default_max_attempts")]
     pub restart_max_attempts: u32,
 
+    /// Interval in ms between health-check pings. Default: `5_000`.
     #[serde(default = "default_health_interval_ms")]
     pub health_check_interval_ms: u64,
 
+    /// Consecutive health-check failures before marking the plugin as unhealthy. Default: `3`.
     #[serde(default = "default_health_threshold")]
     pub health_check_failure_threshold: u32,
 
+    /// Grace period in ms to wait for an in-flight request to finish before force-killing. Default: `10_000`.
     #[serde(default = "default_drain_grace_ms")]
     pub drain_grace_period_ms: u64,
 }
@@ -230,11 +268,14 @@ fn default_drain_grace_ms() -> u64 {
     10000
 }
 
+/// Declared capabilities a plugin provides and requires from others.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct PluginCapabilitiesDecl {
+    /// Capabilities this plugin exposes (e.g. `"forge.example.echo@1.0"`).
     #[serde(default)]
     pub provides: Vec<String>,
 
+    /// Capabilities this plugin depends on at runtime.
     #[serde(default)]
     pub requires: Vec<String>,
 }
@@ -248,6 +289,17 @@ pub struct ConfigLoader {
 }
 
 impl ConfigLoader {
+    /// Create a loader with no config file path set. Call [`with_config_path`](Self::with_config_path) to point it at a file.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use forge_core::config::ConfigLoader;
+    ///
+    /// let loader = ConfigLoader::new();
+    /// let config = loader.load_config().unwrap();
+    /// assert_eq!(config.forge_config_version, "1.0");
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -256,6 +308,17 @@ impl ConfigLoader {
         }
     }
 
+    /// Set the path to `forge.toml`. The parent directory is used to resolve relative `manifest_dir` values.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use forge_core::config::ConfigLoader;
+    ///
+    /// let loader = ConfigLoader::new()
+    ///     .with_config_path("/etc/forge/forge.toml");
+    /// let config = loader.load_config().unwrap();
+    /// ```
     #[must_use]
     pub fn with_config_path(mut self, path: impl Into<PathBuf>) -> Self {
         let path = path.into();
@@ -385,26 +448,33 @@ impl Default for ConfigLoader {
 /// A plugin we found on disk — ready for lifecycle to pick it up.
 #[derive(Debug, Clone)]
 pub struct DiscoveredPlugin {
+    /// The parsed `plugin.forge.toml` contents.
     pub manifest: PluginManifest,
+    /// Absolute filesystem path to the `plugin.forge.toml` file.
     pub manifest_path: PathBuf,
+    /// Absolute path to the plugin's directory on disk.
     pub directory: PathBuf,
 }
 
+/// Errors that can occur while loading or parsing config.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ConfigError {
+    /// The config file could not be read from disk.
     #[error("I/O error reading {path}: {source}")]
     Io {
         path: String,
         source: std::io::Error,
     },
 
+    /// The config file contained invalid TOML or did not match the expected schema.
     #[error("parse error in {path}: {source}")]
     Parse {
         path: String,
         source: toml::de::Error,
     },
 
+    /// The `forge_config_version` or `forge_manifest_version` is not compatible with this kernel.
     #[error("version mismatch in {path:?}: found manifest version {found}, expected {expected}")]
     VersionMismatch {
         path: Option<String>,

@@ -16,12 +16,15 @@ use forge_proto::{
 /// gRPC gateway — accepts InvokeRequests from outside and routes them through the bus.
 /// Just translates between gRPC and our internal bus, nothing more.
 pub struct GrpcGateway {
+    /// Socket address this gateway will bind to, e.g. `"0.0.0.0:50051"`.
     pub bind: String,
     bus: Bus,
     shutdown_rx: tokio::sync::watch::Receiver<bool>,
 }
 
 impl GrpcGateway {
+    /// Create a new gRPC gateway. `bind` is the socket address, `bus` is where invocations
+    /// get dispatched, and `shutdown_rx` tells the server when to stop.
     pub fn new(bind: String, bus: Bus, shutdown_rx: tokio::sync::watch::Receiver<bool>) -> Self {
         Self {
             bind,
@@ -30,6 +33,8 @@ impl GrpcGateway {
         }
     }
 
+    /// Start serving gRPC requests on the configured address. Blocks until the shutdown
+    /// signal is received.
     pub async fn serve(self) -> anyhow::Result<()> {
         let addr: SocketAddr = self.bind.parse()?;
         let kernel_grpc_addr = format!("http://{}:{}", addr.ip(), addr.port());
