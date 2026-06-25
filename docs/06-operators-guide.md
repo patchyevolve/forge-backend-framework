@@ -347,7 +347,7 @@ Exposes Prometheus-format counters/histograms for: invocations per capability, i
 
 | Symptom | Likely cause | Where to look |
 |---|---|---|
-| Plugin stuck in `CONNECTING` | executable path wrong, or socket address unreachable | `forge status`, check `transport` section of that plugin's manifest |
+| Plugin stuck in `CONNECTING` | executable path wrong, socket address unreachable, or plugin started *after* the kernel | `forge status`, check `transport` in that plugin's manifest; the kernel never retries initial-connection failures (Architecture Spec §5) — if the plugin wasn't reachable at kernel startup, restart the kernel after the plugin is running |
 | Plugin stuck in `HANDSHAKING` | protocol version mismatch | kernel log will show the explicit version-mismatch error (Plugin Protocol Spec §8) |
 | Plugin flaps `READY ↔ DEGRADED` | health check failing intermittently — slow plugin, or `health_check_failure_threshold` too aggressive for this plugin's normal latency | raise `health_check_interval_ms`/threshold in that plugin's manifest |
 | `forge run` exits immediately with a config error | `forge_config_version` or a `plugin.forge.toml`'s `forge_manifest_version` major version unrecognized by this kernel build | the startup error names the exact file and version mismatch — never a silent failure, per TRD §7 |
