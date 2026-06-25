@@ -164,7 +164,7 @@ echo "  PASS"
 
 echo ""
 echo "=== Test 7: http-router 404 ==="
-RESP=$(invoke "forge.http.route" '{"method":"DELETE","path":"/nonexistent","headers":{},"body":""}')
+RESP=$(invoke "forge.http.route" '{"method":"DELETE","path":"/nonexistent","headers":{"authorization":"Bearer forge-demo-secret"},"body":""}')
 DEC=$(decode "$RESP")
 echo "  -> $DEC"
 echo "$DEC" | grep -q '404' || { echo "FAIL (expected 404)"; exit 1; }
