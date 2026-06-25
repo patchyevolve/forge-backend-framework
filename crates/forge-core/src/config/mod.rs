@@ -703,7 +703,7 @@ protocol_version = "1.0"
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let unique = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let tmp = PathBuf::from(std::env::temp_dir()).join(format!("forge-test-manifest-{unique}"));
+        let tmp = std::env::temp_dir().join(format!("forge-test-manifest-{unique}"));
         let _ = std::fs::remove_dir_all(&tmp);
         let plugin_dir = tmp.join("plugins").join("echo-rs");
         std::fs::create_dir_all(&plugin_dir).unwrap();

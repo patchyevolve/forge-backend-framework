@@ -62,7 +62,7 @@ impl Stats {
         let sum_ns = self.sum_ns.load(Ordering::Relaxed);
         let mut lats = self.latencies.lock().unwrap();
         lats.sort_unstable();
-        let avg_ns = if count > 0 { sum_ns / count } else { 0 };
+        let avg_ns = sum_ns.checked_div(count).unwrap_or(0);
         let p50 = percentile(&lats, 50);
         let p95 = percentile(&lats, 95);
         let p99 = percentile(&lats, 99);
