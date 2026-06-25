@@ -1,0 +1,14 @@
+[plugin]
+name = "streaming"
+version = "0.1.0"
+description = "Demonstrates paginated / cursor-based data access"
+protocol_version = "1.0"
+
+[transport]
+address = "127.0.0.1:50061"
+
+[lifecycle]
+restart_policy = "on-failure"
+
+[capabilities]
+provides = ["forge.example.stream@1.0"]

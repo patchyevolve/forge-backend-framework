@@ -1,0 +1,14 @@
+[plugin]
+name = "upper"
+version = "0.1.0"
+description = "Uppercases text — depended on by the pipeline plugin"
+protocol_version = "1.0"
+
+[transport]
+address = "127.0.0.1:50064"
+
+[lifecycle]
+restart_policy = "on-failure"
+
+[capabilities]
+provides = ["forge.example.text.upper@1.0"]

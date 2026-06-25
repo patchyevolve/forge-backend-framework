@@ -1,0 +1,15 @@
+[plugin]
+name = "pipeline"
+version = "0.1.0"
+description = "Chains multiple steps — depends on the upper plugin for text transformation"
+protocol_version = "1.0"
+
+[transport]
+address = "127.0.0.1:50065"
+
+[lifecycle]
+restart_policy = "on-failure"
+
+[capabilities]
+provides = ["forge.example.text.pipeline@1.0"]
+requires = ["forge.example.text.upper@1.0"]

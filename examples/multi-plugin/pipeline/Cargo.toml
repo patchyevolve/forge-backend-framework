@@ -1,0 +1,12 @@
+[package]
+name = "forge-example-multi-pipeline"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+forge-plugin-sdk-rust = { version = "1.0", path = "../../../crates/forge-plugin-sdk-rust" }
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true

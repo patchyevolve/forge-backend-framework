@@ -390,6 +390,67 @@ dependencies = [
 ]
 
 [[package]]
+name = "forge-example-custom-capability"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-middleware"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-multi-pipeline"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-multi-upper"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-streaming"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forge-plugin-sdk-rust",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "forge-gateway"
 version = "1.0.0"
 dependencies = [

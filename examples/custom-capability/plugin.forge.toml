@@ -1,0 +1,14 @@
+[plugin]
+name = "greeter"
+version = "0.1.0"
+description = "Demonstrates custom JSON schema input/output"
+protocol_version = "1.0"
+
+[transport]
+address = "127.0.0.1:50062"
+
+[lifecycle]
+restart_policy = "on-failure"
+
+[capabilities]
+provides = ["forge.example.greet@1.0"]

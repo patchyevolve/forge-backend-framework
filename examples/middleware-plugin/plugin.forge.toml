@@ -1,0 +1,15 @@
+[plugin]
+name = "middleware"
+version = "0.1.0"
+description = "Demonstrates logging/timing middleware around another capability"
+protocol_version = "1.0"
+
+[transport]
+address = "127.0.0.1:50063"
+
+[lifecycle]
+restart_policy = "on-failure"
+
+[capabilities]
+provides = ["forge.example.echo.middleware@1.0"]
+requires = ["forge.example.echo@1.0"]
