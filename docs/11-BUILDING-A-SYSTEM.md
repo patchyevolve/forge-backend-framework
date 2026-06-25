@@ -801,7 +801,7 @@ The full pipeline works: ingest stored it, process queried it, uppercased it, an
 
 ## 10. Adding a Fourth Plugin at Runtime
 
-One of Forge's design goals is that you can add a plugin without restarting the kernel. The `watch = true` config option enables this.
+One of Forge's design goals is that you can add a plugin without restarting the kernel. The `watch = true` config option enables this: the kernel polls the `manifest_dir` every 3 seconds for new manifests and changed manifests. A new manifest triggers a fresh connection attempt; a changed manifest on an already-registered plugin triggers a drain-and-restart.
 
 ### Set up the hot-reload config
 
@@ -885,26 +885,23 @@ requires = []
 
 ### Add it at runtime
 
-Build the plugin and add it to the workspace:
+Make sure `watch = true` is set in `tutorial/forge.toml` (from the section above), then build the count plugin and add it to the workspace:
 
 ```bash
 cargo build --release -p tutorial-count
 ```
 
-Stop the kernel with Ctrl+C, then start the count plugin and restart the kernel. Since the kernel reads all manifests from `plugins/` at startup, it will discover the count plugin:
+With the kernel still running, create the manifest file and start the count plugin process. The file watcher (polling every 3s) discovers the new manifest and connects to it — no kernel restart needed:
 
 ```bash
+# Terminal 4: start the count plugin
 FORGE_LISTEN_ADDR="127.0.0.1:51054" ./target/release/tutorial-count &
-sleep 2
-forge run --config tutorial/forge.toml
 ```
 
-The kernel discovers and connects to all four plugins:
+After a few seconds the kernel logs:
 
 ```
-
-```
-INFO forge: plugin discovered: count (tutorial/plugins/count/plugin.forge.toml)
+INFO forge: file-watch: new manifest — starting plugin count
 INFO forge_backend::lifecycle::manager: plugin count: READY — capabilities registered
 ```
 
@@ -917,12 +914,13 @@ curl http://127.0.0.1:9091/v1/status | python3 -m json.tool
 The count plugin appears in the list. Invoke it:
 
 ```bash
-curl -X POST http://127.0.0.1:9091/v1/invoke \
+curl -s -X POST http://127.0.0.1:9091/v1/invoke \
   -H "Content-Type: application/json" \
-  -d '{"capability":"forge.example.count","payload":""}'
+  -d '{"capability":"forge.example.count","payload":""}' \
+  | python3 -c "import sys,json,base64;print(base64.b64decode(json.load(sys.stdin)['payload']).decode())"
 ```
 
-Each call increments the counter.
+Each call increments the counter, returning `invocation #1`, `invocation #2`, and so on.
 
 ---
 

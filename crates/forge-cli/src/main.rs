@@ -129,13 +129,26 @@ async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
 
     manager.start_all(discovered).await;
 
-    // Watch manifests for changes every 3 seconds, restart affected plugins
+    // Watch manifests for changes every 3 seconds — seed mtimes at startup so the
+    // first poll doesn't spuriously restart everything. New manifests (not in seed)
+    // trigger a fresh start; changed manifests trigger a drain+restart.
     if config.plugins.watch {
         let w_loader = ConfigLoader::new().with_config_path(&config_path);
         let w_manager = manager.clone();
         let w_manifest_dir = config.plugins.manifest_dir.clone();
+
+        // Seed mtimes from the initial discovery so we only react to DELTAs.
+        let mut last_mtimes: HashMap<String, SystemTime> = HashMap::new();
+        for p in w_loader.discover_plugin_manifests(&w_manifest_dir) {
+            let path = p.manifest_path.to_string_lossy().to_string();
+            if let Ok(meta) = std::fs::metadata(&p.manifest_path) {
+                if let Ok(t) = meta.modified() {
+                    last_mtimes.insert(path, t);
+                }
+            }
+        }
+
         tokio::spawn(async move {
-            let mut last_mtimes: HashMap<String, SystemTime> = HashMap::new();
             loop {
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 let plugins = w_loader.discover_plugin_manifests(&w_manifest_dir);
@@ -144,11 +157,21 @@ async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
                     let mtime = std::fs::metadata(&p.manifest_path)
                         .and_then(|m| m.modified())
                         .ok();
+                    let is_new = !last_mtimes.contains_key(&path);
                     let changed = match (last_mtimes.get(&path), mtime) {
                         (Some(old), Some(new)) => *old != new,
-                        _ => true,
+                        _ => false,
                     };
-                    if changed {
+                    if is_new {
+                        tracing::info!(
+                            "file-watch: new manifest — starting plugin {}",
+                            p.manifest.plugin.name
+                        );
+                        w_manager.start_plugin_if_new(p.clone()).await;
+                        if let Some(t) = mtime {
+                            last_mtimes.insert(path, t);
+                        }
+                    } else if changed {
                         tracing::info!(
                             "file-watch: manifest changed — restarting plugin {}",
                             p.manifest.plugin.name

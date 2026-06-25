@@ -548,6 +548,36 @@ impl Manager {
         }
     }
 
+    /// Start a plugin if it's new or stuck in a non-Runnable state (Connecting, Stopped, or absent).
+    /// If the plugin is already Ready/Degraded, drain and restart it instead.
+    /// This is the method the file-watcher uses to handle both new manifests and manifest changes.
+    pub async fn start_plugin_if_new(&self, discovered: DiscoveredPlugin) {
+        let name = discovered.manifest.plugin.name.clone();
+        let is_runnable = {
+            let map = self.plugins.lock().await;
+            map.get(&name)
+                .map(|p| p.state == PluginState::Ready || p.state == PluginState::Degraded)
+                .unwrap_or(false)
+        };
+
+        if is_runnable {
+            self.restart_plugin(&name).await;
+        } else {
+            tracing::info!("plugin {name}: (re)starting — current state is not Ready/Degraded");
+            if let Err(e) = Self::start_one_impl(
+                discovered,
+                self.registry.clone(),
+                self.bus.clone(),
+                self.plugins.clone(),
+                self.restart_tx.clone(),
+            )
+            .await
+            {
+                tracing::error!("plugin {name}: failed to start — {e}");
+            }
+        }
+    }
+
     /// Gracefully shut down everything — calls Drain RPC on each plugin and waits.
     pub async fn shutdown_all(&self) {
         let mut map = self.plugins.lock().await;
