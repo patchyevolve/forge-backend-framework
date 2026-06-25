@@ -1,4 +1,4 @@
-//! Latency & throughput benchmarks for forge-core.
+//! Latency & throughput benchmarks for forge-backend.
 //!
 //! Run:  cargo test --test performance_benchmarks -- --nocapture
 //!
@@ -11,15 +11,15 @@ use std::time::Duration;
 #[cfg(feature = "tonic")]
 use tonic::{transport::Server, Request, Response, Status};
 
-use forge_core::bus::{Bus, Invocation};
-use forge_core::config::{
+use forge_backend::bus::{Bus, Invocation};
+use forge_backend::config::{
     DiscoveredPlugin, PluginCapabilitiesDecl, PluginLifecycleConfig, PluginManifest,
     PluginManifestMeta, PluginTransport,
 };
-use forge_core::kernel::{Kernel, KernelConfig};
+use forge_backend::kernel::{Kernel, KernelConfig};
 #[cfg(feature = "tonic")]
-use forge_core::lifecycle::{Manager, PluginState};
-use forge_core::registry::Registry;
+use forge_backend::lifecycle::{Manager, PluginState};
+use forge_backend::registry::Registry;
 
 #[cfg(feature = "tonic")]
 use forge_proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
@@ -461,7 +461,7 @@ async fn chained_invocation_10() {
 #[cfg(feature = "tonic")]
 #[tokio::test]
 async fn plugin_startup_time() {
-    use forge_core::lifecycle::PluginState;
+    use forge_backend::lifecycle::PluginState;
 
     struct QuickPlugin;
     #[tonic::async_trait]
@@ -571,7 +571,7 @@ async fn registry_lookup_latency() {
         registry.register(
             format!("reg.bench.{i}"),
             semver::Version::new(1, 0, 0),
-            forge_core::registry::PluginHandle {
+            forge_backend::registry::PluginHandle {
                 plugin_name: format!("p{i}"),
                 instance_id: format!("inst{i}"),
             },
@@ -677,7 +677,7 @@ async fn wait_for_state(
 #[cfg(feature = "tonic")]
 #[tokio::test]
 async fn restart_latency() {
-    use forge_core::lifecycle::PluginState;
+    use forge_backend::lifecycle::PluginState;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
 

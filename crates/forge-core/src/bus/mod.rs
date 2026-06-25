@@ -120,8 +120,8 @@ impl Bus {
     /// Create a new bus that uses the given registry to resolve capabilities.
     ///
     /// ```
-    /// # use forge_core::bus::Bus;
-    /// # use forge_core::registry::Registry;
+    /// # use forge_backend::bus::Bus;
+    /// # use forge_backend::registry::Registry;
     /// let registry = Registry::new();
     /// let bus = Bus::new(registry);
     /// ```

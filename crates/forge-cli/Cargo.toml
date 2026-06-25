@@ -9,7 +9,7 @@ name = "forge"
 path = "src/main.rs"
 
 [dependencies]
-forge-core = { path = "../forge-core" }
+forge-backend = { path = "../forge-core" }
 forge-gateway = { path = "../forge-gateway" }
 forge-proto = { path = "../forge-proto" }
 tokio.workspace = true

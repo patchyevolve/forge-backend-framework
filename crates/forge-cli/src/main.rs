@@ -7,10 +7,10 @@ use std::time::SystemTime;
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
 
-use forge_core::bus::Bus;
-use forge_core::config::ConfigLoader;
-use forge_core::lifecycle::Manager;
-use forge_core::registry::Registry;
+use forge_backend::bus::Bus;
+use forge_backend::config::ConfigLoader;
+use forge_backend::lifecycle::Manager;
+use forge_backend::registry::Registry;
 use forge_gateway::Gateway;
 
 #[derive(Deserialize)]

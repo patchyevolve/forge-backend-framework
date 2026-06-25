@@ -6,13 +6,13 @@ use std::time::Duration;
 
 use tonic::{transport::Server, Request, Response, Status};
 
-use forge_core::bus::{Bus, Invocation};
-use forge_core::config::{
+use forge_backend::bus::{Bus, Invocation};
+use forge_backend::config::{
     DiscoveredPlugin, PluginCapabilitiesDecl, PluginLifecycleConfig, PluginManifest,
     PluginManifestMeta, PluginTransport,
 };
-use forge_core::lifecycle::{Manager, PluginState};
-use forge_core::registry::Registry;
+use forge_backend::lifecycle::{Manager, PluginState};
+use forge_backend::registry::Registry;
 
 use forge_proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
 use forge_proto::{

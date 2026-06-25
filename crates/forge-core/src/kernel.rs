@@ -2,7 +2,7 @@ use crate::bus::Bus;
 use crate::config::{ConfigLoader, ForgeConfig};
 use crate::registry::Registry;
 
-/// Embed forge-core in another program. Wraps the Registry + Bus so you get the full invocation pipeline without any gateway or gRPC listeners.
+/// Embed forge-backend in another program. Wraps the Registry + Bus so you get the full invocation pipeline without any gateway or gRPC listeners.
 pub struct Kernel {
     registry: Registry,
     bus: Bus,
@@ -41,7 +41,7 @@ impl Kernel {
     /// Returns a reference to the kernel's capability registry.
     ///
     /// ```
-    /// # use forge_core::kernel::{Kernel, KernelConfig};
+    /// # use forge_backend::kernel::{Kernel, KernelConfig};
     /// let kernel = Kernel::start(KernelConfig::default());
     /// let _ = kernel.registry();
     /// ```
@@ -52,7 +52,7 @@ impl Kernel {
     /// Returns a reference to the kernel's message bus.
     ///
     /// ```
-    /// # use forge_core::kernel::{Kernel, KernelConfig};
+    /// # use forge_backend::kernel::{Kernel, KernelConfig};
     /// let kernel = Kernel::start(KernelConfig::default());
     /// let _ = kernel.bus();
     /// ```

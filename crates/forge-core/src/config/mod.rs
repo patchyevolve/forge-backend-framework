@@ -294,7 +294,7 @@ impl ConfigLoader {
     /// # Examples
     ///
     /// ```rust
-    /// use forge_core::config::ConfigLoader;
+    /// use forge_backend::config::ConfigLoader;
     ///
     /// let loader = ConfigLoader::new();
     /// let config = loader.load_config().unwrap();
@@ -313,7 +313,7 @@ impl ConfigLoader {
     /// # Examples
     ///
     /// ```no_run
-    /// use forge_core::config::ConfigLoader;
+    /// use forge_backend::config::ConfigLoader;
     ///
     /// let loader = ConfigLoader::new()
     ///     .with_config_path("/etc/forge/forge.toml");

@@ -38,7 +38,7 @@ jobs:
           - name: release
             flags: --release -p forge-cli
           - name: no-default-features
-            flags: -p forge-core --no-default-features
+            flags: -p forge-backend --no-default-features
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -54,8 +54,8 @@ jobs:
         run: cargo package -p forge-proto
       - name: Package forge-plugin-sdk-rust
         run: cargo package -p forge-plugin-sdk-rust
-      - name: Package forge-core
-        run: cargo package -p forge-core
+      - name: Package forge-backend
+        run: cargo package -p forge-backend
 
   offline-build:
     runs-on: ubuntu-latest

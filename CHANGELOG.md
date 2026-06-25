@@ -5,7 +5,7 @@
 Initial release of **Forge** — a polyglot backend microkernel.
 
 ### Architecture
-- **forge-core**: lifecycle (7-state `PluginState`), concurrent `Registry` (DashMap), `Bus` (4-step dispatch: resolve → deadline → send+await → return), config loader (`ConfigLoader` + `ForgeConfig` + `PluginManifest`), embedding API (`Kernel` + `KernelConfig`)
+- **forge-backend** (published as `forge-backend` on crates.io): lifecycle (7-state `PluginState`), concurrent `Registry` (DashMap), `Bus` (4-step dispatch: resolve → deadline → send+await → return), config loader (`ConfigLoader` + `ForgeConfig` + `PluginManifest`), embedding API (`Kernel` + `KernelConfig`)
 - **forge-proto**: canonical plugin protocol (`forge_plugin_v1.proto`) with Register, Invoke, HealthCheck, Drain RPCs. Builds via tonic + prost-build with vendored protoc.
 - **forge-gateway**: gRPC + HTTP (axum) ingress translation layer with UUID request ID at ingress, healthz/status/invoke/restart endpoints
 - **forge-cli**: `forge run`, `forge status` (text + graph), `forge plugin restart`, file watcher for hot-reload

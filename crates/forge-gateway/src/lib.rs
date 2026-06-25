@@ -4,10 +4,10 @@ mod http;
 pub use grpc::GrpcGateway;
 pub use http::HttpGateway;
 
-use forge_core::bus::Bus;
-use forge_core::config::ForgeConfig;
-use forge_core::lifecycle::Manager;
-use forge_core::registry::Registry;
+use forge_backend::bus::Bus;
+use forge_backend::config::ForgeConfig;
+use forge_backend::lifecycle::Manager;
+use forge_backend::registry::Registry;
 
 /// Holds both gRPC and HTTP listeners. Just a thin translation layer, no business logic.
 pub struct Gateway {

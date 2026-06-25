@@ -296,7 +296,7 @@ name = "embedded-minimal"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "forge-core",
+ "forge-backend",
  "tokio",
 ]
 
@@ -353,23 +353,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
-name = "forge-cli"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "forge-core",
- "forge-gateway",
- "forge-proto",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-core"
+name = "forge-backend"
 version = "1.0.0"
 dependencies = [
  "anyhow",
@@ -387,6 +371,22 @@ dependencies = [
  "tonic",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "forge-cli"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "forge-backend",
+ "forge-gateway",
+ "forge-proto",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -458,7 +458,7 @@ dependencies = [
  "axum",
  "base64",
  "bytes",
- "forge-core",
+ "forge-backend",
  "forge-proto",
  "hyper",
  "prost",

@@ -53,7 +53,7 @@ impl Registry {
     /// Create an empty registry with the default [`ResolutionStrategy::FirstReadyWins`].
     ///
     /// ```
-    /// # use forge_core::registry::Registry;
+    /// # use forge_backend::registry::Registry;
     /// let reg = Registry::new();
     /// assert!(reg.list_capabilities().is_empty());
     /// ```
@@ -68,7 +68,7 @@ impl Registry {
     /// Create an empty registry with a specific resolution strategy.
     ///
     /// ```
-    /// # use forge_core::registry::{Registry, ResolutionStrategy};
+    /// # use forge_backend::registry::{Registry, ResolutionStrategy};
     /// let reg = Registry::with_resolution(ResolutionStrategy::RoundRobin);
     /// assert!(reg.list_capabilities().is_empty());
     /// ```

@@ -6,4 +6,5 @@ dist/
 .DS_Store
 *.pyc
 __pycache__/
+forge-backend.tar.gz
 forge-core.tar.gz

@@ -4,14 +4,14 @@ use std::time::Duration;
 
 use tonic::{transport::Server, Request, Response, Status};
 
-use forge_core::bus::{Bus, Invocation, InvocationError};
-use forge_core::config::{
+use forge_backend::bus::{Bus, Invocation, InvocationError};
+use forge_backend::config::{
     DiscoveredPlugin, PluginCapabilitiesDecl, PluginLifecycleConfig, PluginManifest,
     PluginManifestMeta, PluginTransport,
 };
-use forge_core::kernel::{Kernel, KernelConfig};
-use forge_core::lifecycle::{Manager, PluginState};
-use forge_core::registry::Registry;
+use forge_backend::kernel::{Kernel, KernelConfig};
+use forge_backend::lifecycle::{Manager, PluginState};
+use forge_backend::registry::Registry;
 
 use forge_proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
 use forge_proto::{
@@ -619,7 +619,7 @@ async fn registry_contention() {
         registry.register(
             format!("cap.{i}"),
             semver::Version::new(1, 0, 0),
-            forge_core::registry::PluginHandle {
+            forge_backend::registry::PluginHandle {
                 plugin_name: format!("p{i}"),
                 instance_id: format!("inst{i}"),
             },
@@ -660,7 +660,7 @@ async fn simultaneous_register_deregister() {
     for i in 0..1000 {
         let reg = registry.clone();
         handles.push(tokio::spawn(async move {
-            let handle = forge_core::registry::PluginHandle {
+            let handle = forge_backend::registry::PluginHandle {
                 plugin_name: format!("p{i}"),
                 instance_id: format!("inst{i}"),
             };

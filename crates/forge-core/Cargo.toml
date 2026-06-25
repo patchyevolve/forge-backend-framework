@@ -1,5 +1,5 @@
 [package]
-name = "forge-core"
+name = "forge-backend"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,7 +11,7 @@ default = ["tonic"]
 tonic = ["dep:tonic"]
 
 # Turn off gRPC with the "minimal" feature set for constrained environments.
-# Add to Cargo.toml like: forge-core = { default-features = false }
+# Add to Cargo.toml like: forge-backend = { default-features = false }
 # Without gRPC you lose: tonic-based networking and the plugin Manager.
 # You keep: Registry, in-process Bus, config loading, lifecycle state machine.
 

@@ -4,7 +4,7 @@ use std::time::Duration;
 use tonic::{transport::Server, Request, Response, Status};
 use uuid::Uuid;
 
-use forge_core::bus::{Bus, Invocation, InvocationError};
+use forge_backend::bus::{Bus, Invocation, InvocationError};
 
 use forge_proto::{
     self as proto,

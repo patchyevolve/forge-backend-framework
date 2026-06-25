@@ -54,9 +54,9 @@ impl Manager {
     /// # Example
     ///
     /// ```no_run
-    /// use forge_core::lifecycle::Manager;
-    /// use forge_core::registry::Registry;
-    /// use forge_core::bus::Bus;
+    /// use forge_backend::lifecycle::Manager;
+    /// use forge_backend::registry::Registry;
+    /// use forge_backend::bus::Bus;
     ///
     /// # async fn example() {
     /// let registry = Registry::new();
@@ -179,8 +179,8 @@ impl Manager {
     /// # Example
     ///
     /// ```no_run
-    /// use forge_core::lifecycle::Manager;
-    /// use forge_core::config::DiscoveredPlugin;
+    /// use forge_backend::lifecycle::Manager;
+    /// use forge_backend::config::DiscoveredPlugin;
     ///
     /// # async fn example(manager: Manager, plugins: Vec<DiscoveredPlugin>) {
     /// manager.start_all(plugins).await;

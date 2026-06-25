@@ -8,9 +8,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use forge_core::bus::{Bus, Invocation, InvocationError};
-use forge_core::lifecycle::Manager;
-use forge_core::registry::Registry;
+use forge_backend::bus::{Bus, Invocation, InvocationError};
+use forge_backend::lifecycle::Manager;
+use forge_backend::registry::Registry;
 
 /// HTTP (REST) gateway — exposes health, status, invoke, and plugin-management
 /// endpoints. Thin wrapper around an axum server, no business logic.

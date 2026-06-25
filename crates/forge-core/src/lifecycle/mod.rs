@@ -33,7 +33,7 @@ impl PluginState {
     /// # Example
     ///
     /// ```rust
-    /// use forge_core::lifecycle::PluginState;
+    /// use forge_backend::lifecycle::PluginState;
     ///
     /// let next = PluginState::Discovered.transition(PluginState::Connecting);
     /// assert_eq!(next, Ok(PluginState::Connecting));
