@@ -10,7 +10,7 @@ use forge_proto::{
     HealthCheckResponse, InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
 };
 
-/// Re-export of [`async_trait`] so plugin authors don't need to depend on it directly.
+#[doc(no_inline)]
 pub use async_trait::async_trait;
 
 /// Something this plugin can do.
