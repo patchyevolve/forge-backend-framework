@@ -6,7 +6,7 @@
 //! ## Quick start
 //!
 //! ```rust
-//! use forge::sdk::{
+//! use forgecore_backend_framework_daemon::sdk::{
 //!     Plugin, Capability, InvokeContext, InvokeResult,
 //! };
 //!
@@ -79,7 +79,7 @@ impl Capability {
     /// Create a new capability with the given name and version.
     ///
     /// ```rust
-    /// # use forge::sdk::Capability;
+    /// use forgecore_backend_framework_daemon::sdk::Capability;
     /// let cap = Capability::new("my:action", "1.0.0");
     /// assert_eq!(cap.name, "my:action");
     /// assert_eq!(cap.version, "1.0.0");
@@ -133,7 +133,7 @@ impl PluginError {
     /// Shorthand for a 404-style error.
     ///
     /// ```rust
-    /// # use forge::sdk::PluginError;
+    /// use forgecore_backend_framework_daemon::sdk::PluginError;
     /// let err = PluginError::not_found("capability not registered");
     /// assert_eq!(err.code, "NOT_FOUND");
     /// ```
@@ -174,14 +174,14 @@ pub trait Plugin: Send + Sync + 'static {
     /// Called by the kernel at registration time.
     ///
     /// ```rust
-    /// # use forge::sdk::{Plugin, Capability};
+    /// use forgecore_backend_framework_daemon::sdk::{Plugin, Capability};
     /// # struct MyPlugin;
     /// # #[async_trait::async_trait]
     /// # impl Plugin for MyPlugin {
     /// fn capabilities(&self) -> Vec<Capability> {
     ///     vec![Capability::new("my:action", "1.0.0")]
     /// }
-    /// # async fn invoke(&self, _: forge::sdk::InvokeContext) -> forge::sdk::InvokeResult { unimplemented!() }
+    /// # async fn invoke(&self, _: forgecore_backend_framework_daemon::sdk::InvokeContext) -> forgecore_backend_framework_daemon::sdk::InvokeResult { unimplemented!() }
     /// # async fn health_check(&self) -> bool { true }
     /// # }
     /// ```
@@ -190,7 +190,7 @@ pub trait Plugin: Send + Sync + 'static {
     /// Handle an invocation for one of the advertised capabilities.
     ///
     /// ```no_run
-    /// # use forge::sdk::{Plugin, Capability, InvokeContext, InvokeResult};
+    /// use forgecore_backend_framework_daemon::sdk::{Plugin, Capability, InvokeContext, InvokeResult};
     /// # struct MyPlugin;
     /// # #[async_trait::async_trait]
     /// # impl Plugin for MyPlugin {
@@ -208,7 +208,7 @@ pub trait Plugin: Send + Sync + 'static {
     /// and should be drained.
     ///
     /// ```no_run
-    /// # use forge::sdk::{Plugin, Capability, InvokeContext, InvokeResult};
+    /// use forgecore_backend_framework_daemon::sdk::{Plugin, Capability, InvokeContext, InvokeResult};
     /// # struct MyPlugin;
     /// # #[async_trait::async_trait]
     /// # impl Plugin for MyPlugin {
@@ -223,7 +223,7 @@ pub trait Plugin: Send + Sync + 'static {
     /// the plugin. The default implementation is a no-op.
     ///
     /// ```no_run
-    /// # use forge::sdk::{Plugin, Capability, InvokeContext, InvokeResult};
+    /// use forgecore_backend_framework_daemon::sdk::{Plugin, Capability, InvokeContext, InvokeResult};
     /// # struct MyPlugin;
     /// # #[async_trait::async_trait]
     /// # impl Plugin for MyPlugin {
@@ -312,7 +312,7 @@ impl<P: Plugin> PluginServer<P> {
     /// Wrap a [`Plugin`] implementation ready for serving.
     ///
     /// ```rust
-    /// # use forge::sdk::{Plugin, PluginServer, Capability, InvokeContext, InvokeResult};
+    /// use forgecore_backend_framework_daemon::sdk::{Plugin, PluginServer, Capability, InvokeContext, InvokeResult};
     /// # struct MyPlugin;
     /// # #[async_trait::async_trait]
     /// # impl Plugin for MyPlugin {
@@ -380,7 +380,7 @@ impl KernelClient {
     ///
     /// ```no_run
     /// # async fn example() -> Result<(), anyhow::Error> {
-    /// let client = forge::sdk::KernelClient::connect("http://127.0.0.1:50051").await?;
+    /// forgecore_backend_framework_daemon::sdk::KernelClient::connect("http://127.0.0.1:50051").await?;
     /// # Ok(())
     /// # }
     /// ```

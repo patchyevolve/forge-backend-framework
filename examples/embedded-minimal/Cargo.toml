@@ -5,6 +5,6 @@ edition = "2021"
 publish = false
 
 [dependencies]
-forge = { path = "../../forge" }
+forge = { package = "forgecore-backend-framework-daemon", path = "../../forge" }
 tokio = { workspace = true }
 bytes.workspace = true

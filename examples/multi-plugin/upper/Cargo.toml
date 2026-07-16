@@ -5,7 +5,7 @@ edition.workspace = true
 license-file.workspace = true
 
 [dependencies]
-forge = { path = "../../../forge" }
+forge = { package = "forgecore-backend-framework-daemon", path = "../../../forge" }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

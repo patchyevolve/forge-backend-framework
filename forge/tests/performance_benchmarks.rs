@@ -11,20 +11,20 @@ use std::time::Duration;
 #[cfg(feature = "gateway")]
 use tonic::{transport::Server, Request, Response, Status};
 
-use forge::bus::{Bus, Invocation};
-use forge::config::{
+use forgecore_backend_framework_daemon::bus::{Bus, Invocation};
+use forgecore_backend_framework_daemon::config::{
     DiscoveredPlugin, PluginCapabilitiesDecl, PluginLifecycleConfig, PluginManifest,
     PluginManifestMeta, PluginTransport,
 };
-use forge::kernel::{Kernel, KernelConfig};
+use forgecore_backend_framework_daemon::kernel::{Kernel, KernelConfig};
 #[cfg(feature = "gateway")]
-use forge::lifecycle::{Manager, PluginState};
-use forge::registry::Registry;
+use forgecore_backend_framework_daemon::lifecycle::{Manager, PluginState};
+use forgecore_backend_framework_daemon::registry::Registry;
 
 #[cfg(feature = "gateway")]
-use forge::proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
+use forgecore_backend_framework_daemon::proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
 #[cfg(feature = "gateway")]
-use forge::proto::{
+use forgecore_backend_framework_daemon::proto::{
     Capability, DrainRequest, DrainResponse, HealthCheckRequest, HealthCheckResponse,
     InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
 };
@@ -319,7 +319,7 @@ impl ForgePlugin for EchoPlugin {
         let r = req.into_inner();
         Ok(Response::new(InvokeResponse {
             request_id: r.request_id,
-            result: Some(forge::proto::invoke_response::Result::Payload(r.payload)),
+            result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
         }))
     }
     async fn health_check(
@@ -461,7 +461,7 @@ async fn chained_invocation_10() {
 #[cfg(feature = "gateway")]
 #[tokio::test]
 async fn plugin_startup_time() {
-    use forge::lifecycle::PluginState;
+    use forgecore_backend_framework_daemon::lifecycle::PluginState;
 
     struct QuickPlugin;
     #[tonic::async_trait]
@@ -487,7 +487,7 @@ async fn plugin_startup_time() {
             let r = req.into_inner();
             Ok(Response::new(InvokeResponse {
                 request_id: r.request_id,
-                result: Some(forge::proto::invoke_response::Result::Payload(r.payload)),
+                result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
             }))
         }
         async fn health_check(
@@ -571,7 +571,7 @@ async fn registry_lookup_latency() {
         registry.register(
             format!("reg.bench.{i}"),
             semver::Version::new(1, 0, 0),
-            forge::registry::PluginHandle {
+            forgecore_backend_framework_daemon::registry::PluginHandle {
                 plugin_name: format!("p{i}"),
                 instance_id: format!("inst{i}"),
             },
@@ -677,7 +677,7 @@ async fn wait_for_state(
 #[cfg(feature = "gateway")]
 #[tokio::test]
 async fn restart_latency() {
-    use forge::lifecycle::PluginState;
+    use forgecore_backend_framework_daemon::lifecycle::PluginState;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
 
@@ -710,7 +710,7 @@ async fn restart_latency() {
             let r = req.into_inner();
             Ok(Response::new(InvokeResponse {
                 request_id: r.request_id,
-                result: Some(forge::proto::invoke_response::Result::Payload(r.payload)),
+                result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
             }))
         }
         async fn health_check(

@@ -12,7 +12,7 @@
 //! ## Example (embedding)
 //!
 //! ```no_run
-//! use forge::kernel::{Kernel, KernelConfig};
+//! use forgecore_backend_framework_daemon::kernel::{Kernel, KernelConfig};
 //!
 //! let kernel = Kernel::start(KernelConfig::from_file("forge.toml").unwrap());
 //! let _registry = kernel.registry();

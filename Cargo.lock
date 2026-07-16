@@ -336,7 +336,7 @@ name = "embedded-minimal"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "forge",
+ "forgecore-backend-framework-daemon",
  "tokio",
 ]
 
@@ -393,7 +393,134 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
-name = "forge"
+name = "forge-cli"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "forgecore-backend-framework-daemon",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-custom-capability"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-middleware"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-multi-pipeline"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-multi-upper"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-example-streaming"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-plugin-auth-jwt"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-plugin-data-sqlite"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-plugin-echo-rs"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-plugin-http-router"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "forgecore-backend-framework-daemon",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "forgecore-backend-framework-daemon"
 version = "1.0.0"
 dependencies = [
  "anyhow",
@@ -423,133 +550,6 @@ dependencies = [
  "tower-http",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "forge-cli"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "forge",
- "rustls",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-example-custom-capability"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-example-middleware"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-example-multi-pipeline"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-example-multi-upper"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-example-streaming"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-plugin-auth-jwt"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-plugin-data-sqlite"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "rusqlite",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-plugin-echo-rs"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-plugin-http-router"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "forge",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1957,7 +1957,7 @@ name = "tutorial-count"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge",
+ "forgecore-backend-framework-daemon",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1968,7 +1968,7 @@ name = "tutorial-ingest"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge",
+ "forgecore-backend-framework-daemon",
  "serde",
  "serde_json",
  "tokio",
@@ -1981,7 +1981,7 @@ name = "tutorial-process"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge",
+ "forgecore-backend-framework-daemon",
  "serde",
  "serde_json",
  "tokio",
@@ -1994,7 +1994,7 @@ name = "tutorial-store"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge",
+ "forgecore-backend-framework-daemon",
  "serde",
  "serde_json",
  "tokio",

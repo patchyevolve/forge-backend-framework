@@ -9,7 +9,7 @@ name = "forge"
 path = "src/main.rs"
 
 [dependencies]
-forge = { path = "../forge" }
+forge = { package = "forgecore-backend-framework-daemon", path = "../forge" }
 tokio.workspace = true
 clap = { workspace = true, features = ["derive"] }
 tracing.workspace = true

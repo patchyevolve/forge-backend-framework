@@ -6,16 +6,16 @@ use std::time::Duration;
 
 use tonic::{transport::Server, Request, Response, Status};
 
-use forge::bus::{Bus, Invocation};
-use forge::config::{
+use forgecore_backend_framework_daemon::bus::{Bus, Invocation};
+use forgecore_backend_framework_daemon::config::{
     DiscoveredPlugin, PluginCapabilitiesDecl, PluginLifecycleConfig, PluginManifest,
     PluginManifestMeta, PluginTransport,
 };
-use forge::lifecycle::{Manager, PluginState};
-use forge::registry::Registry;
+use forgecore_backend_framework_daemon::lifecycle::{Manager, PluginState};
+use forgecore_backend_framework_daemon::registry::Registry;
 
-use forge::proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
-use forge::proto::{
+use forgecore_backend_framework_daemon::proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
+use forgecore_backend_framework_daemon::proto::{
     Capability, DrainRequest, DrainResponse, HealthCheckRequest, HealthCheckResponse,
     InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
 };
@@ -256,7 +256,7 @@ impl ForgePlugin for FakePlugin {
         let echoed = text.to_uppercase();
         Ok(Response::new(InvokeResponse {
             request_id: req.request_id,
-            result: Some(forge::proto::invoke_response::Result::Payload(
+            result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
                 echoed.into_bytes(),
             )),
         }))
