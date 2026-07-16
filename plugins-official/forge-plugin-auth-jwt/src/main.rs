@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Pick up the default addr from the manifest if nothing's set
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50052");
+        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50052"); }
     }
 
     PluginServer::new(AuthJwtPlugin).serve_shape_a().await

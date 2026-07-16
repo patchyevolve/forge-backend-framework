@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:51052");
+        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:51052"); }
     }
     PluginServer::new(StorePlugin {
         records: Mutex::new(Vec::new()),

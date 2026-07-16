@@ -619,7 +619,7 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = std::env::var("FORGE_LISTEN_ADDR").unwrap_or_else(|_| "127.0.0.1:50051".into());
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        std::env::set_var("FORGE_LISTEN_ADDR", &addr);
+        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", &addr); }
     }
 
     tracing::info!("auth plugin starting on {addr}");
@@ -728,7 +728,7 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = std::env::var("FORGE_LISTEN_ADDR").unwrap_or_else(|_| "127.0.0.1:50052".into());
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        std::env::set_var("FORGE_LISTEN_ADDR", &addr);
+        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", &addr); }
     }
 
     tracing::info!("health plugin starting on {addr}");
@@ -825,7 +825,7 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = std::env::var("FORGE_LISTEN_ADDR").unwrap_or_else(|_| "127.0.0.1:50053".into());
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        std::env::set_var("FORGE_LISTEN_ADDR", &addr);
+        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", &addr); }
     }
 
     tracing::info!("example plugin starting on {addr}");
@@ -1126,7 +1126,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50051");
+        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50051"); }
     }
 
     PluginServer::new(MyPlugin).serve_shape_a().await

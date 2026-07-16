@@ -2,7 +2,7 @@
 name = "forge"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+license-file.workspace = true
 description = "Backend operating environment — kernel, gateway, plugin SDK, and CLI"
 repository = "https://github.com/patchyevolve/forge-backend-framework"
 

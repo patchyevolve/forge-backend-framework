@@ -2,7 +2,7 @@
 name = "forge-example-multi-pipeline"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+license-file.workspace = true
 
 [dependencies]
 forge = { path = "../../../forge" }
