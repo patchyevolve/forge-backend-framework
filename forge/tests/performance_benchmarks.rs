@@ -31,8 +31,6 @@ use forgecore_backend_framework_daemon::proto::{
     InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
 };
 
-// ---- helpers ---------------------------------------------------------------
-
 fn memory_kb() -> u64 {
     std::fs::read_to_string("/proc/self/status")
         .ok()
@@ -123,8 +121,6 @@ fn vec_payload(size: usize) -> bytes::Bytes {
     }
     bytes::Bytes::from(v)
 }
-
-// ---- benchmark runner ------------------------------------------------------
 
 struct BenchResult {
     label: String,
@@ -254,8 +250,6 @@ fn manifest(name: &str, address: &str, lc: PluginLifecycleConfig) -> DiscoveredP
     }
 }
 
-// ---- how fast does kernel::start() return? ---------------------------------
-
 #[tokio::test]
 async fn kernel_startup_time() {
     let warmup = 10;
@@ -265,8 +259,6 @@ async fn kernel_startup_time() {
     })
     .await;
 }
-
-// ---- dispatch latency for in-process (no gRPC) handlers --------------------
 
 #[tokio::test]
 async fn in_process_dispatch_latency() {
@@ -291,8 +283,6 @@ async fn in_process_dispatch_latency() {
     })
     .await;
 }
-
-// ---- dispatch through a real gRPC round-trip -------------------------------
 
 #[cfg(feature = "gateway")]
 struct EchoPlugin;
@@ -383,8 +373,6 @@ async fn grpc_dispatch_latency() {
     .await;
 }
 
-// ---- chained invocations — 1, 5, and 10 hops deep --------------------------
-
 async fn build_chain(kernel: &Kernel, length: usize) {
     for i in 0..length {
         let cap = format!("chain.{i}");
@@ -461,8 +449,6 @@ async fn chained_invocation_10() {
     })
     .await;
 }
-
-// ---- how long from start_all to Ready for a fresh plugin? ------------------
 
 #[cfg(feature = "gateway")]
 #[tokio::test]
@@ -572,8 +558,6 @@ async fn plugin_startup_time() {
     result.report();
 }
 
-// ---- how fast are registry lookups with 100 entries? -----------------------
-
 #[tokio::test]
 async fn registry_lookup_latency() {
     let registry = Registry::new();
@@ -598,8 +582,6 @@ async fn registry_lookup_latency() {
     })
     .await;
 }
-
-// ---- memory footprint at idle, after kernel start, handlers, and dispatch --
 
 #[tokio::test]
 async fn memory_usage() {
@@ -663,8 +645,6 @@ async fn memory_usage() {
         delta_dispatch
     );
 }
-
-// ---- crash the plugin, wait for restart — how long does it take? -----------
 
 #[cfg(feature = "gateway")]
 async fn wait_for_state(
@@ -823,8 +803,6 @@ async fn restart_latency() {
 
     result.report();
 }
-
-// ---- environment info dump -------------------------------------------------
 
 #[tokio::test]
 async fn environment_info_test() {

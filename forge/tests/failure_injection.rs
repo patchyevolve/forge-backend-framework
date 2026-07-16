@@ -20,8 +20,6 @@ use forgecore_backend_framework_daemon::proto::{
     InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
 };
 
-// ---- helpers ---------------------------------------------------------------
-
 fn lifecycle_fast() -> PluginLifecycleConfig {
     PluginLifecycleConfig {
         restart_policy: "on-failure".into(),
@@ -108,8 +106,6 @@ async fn wait_for_state(
     }
     mgr.plugin_state(name).await
 }
-
-// ---- plugins that misbehave in various ways --------------------------------
 
 struct HangingPlugin {
     cap_name: &'static str,
@@ -371,8 +367,6 @@ impl ForgePlugin for HealthyPlugin {
     }
 }
 
-// ---- plugin that hangs and never responds ----------------------------------
-
 #[tokio::test]
 async fn hanging_plugin_returns_deadline_exceeded() {
     let plugin = HangingPlugin {
@@ -402,8 +396,6 @@ async fn hanging_plugin_returns_deadline_exceeded() {
     );
 }
 
-// ---- plugin that sends back garbage ----------------------------------------
-
 #[tokio::test]
 async fn corrupted_payload_returns_transport_error() {
     let plugin = ErrorPlugin {
@@ -429,8 +421,6 @@ async fn corrupted_payload_returns_transport_error() {
         Some(PluginState::Ready)
     );
 }
-
-// ---- plugin dies right after handling a request -----------------------------
 
 #[tokio::test]
 async fn plugin_crashes_during_request_triggers_restart() {
@@ -488,8 +478,6 @@ async fn plugin_crashes_during_request_triggers_restart() {
     assert_eq!(state, Some(PluginState::Ready));
 }
 
-// ---- plugin that never reports healthy -------------------------------------
-
 #[tokio::test]
 async fn never_healthy_transitions_to_degraded() {
     let plugin = UnhealthyPlugin {
@@ -526,8 +514,6 @@ async fn never_healthy_transitions_to_degraded() {
     let s = plugins.iter().find(|(n, _)| n == "sick");
     assert_eq!(s.map(|(_, s)| s), Some(&PluginState::Degraded));
 }
-
-// ---- broken connection — every health check / invoke fails ------------------
 
 #[tokio::test]
 async fn broken_connection_triggers_crash_detection() {
@@ -574,8 +560,6 @@ async fn broken_connection_triggers_crash_detection() {
     .await;
     assert_eq!(state, Some(PluginState::Ready));
 }
-
-// ---- keep crashing and restarting — make sure backoff works ----------------
 
 #[tokio::test]
 async fn restart_storm_respects_backoff() {
@@ -638,8 +622,6 @@ async fn restart_storm_respects_backoff() {
     tokio::time::sleep(Duration::from_secs(4)).await;
 }
 
-// ---- one plugin constantly crashing shouldn't stop others from working -----
-
 #[tokio::test]
 async fn immediate_recrash_does_not_exhaust_other_plugins() {
     let (bad_addr, _bad_sh) = serve(DeadConnectionPlugin {
@@ -691,8 +673,6 @@ async fn immediate_recrash_does_not_exhaust_other_plugins() {
         "healthy plugin should serve during restart storm"
     );
 }
-
-// ---- two failing plugins at once — make sure they don't interfere ----------
 
 #[tokio::test]
 async fn multiple_failures_remain_isolated() {

@@ -159,9 +159,7 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Config auto-detection
-// ---------------------------------------------------------------------------
 
 fn auto_detect_config(config: PathBuf) -> PathBuf {
     if config == std::path::Path::new("forge.toml") {
@@ -173,9 +171,7 @@ fn auto_detect_config(config: PathBuf) -> PathBuf {
     config
 }
 
-// ---------------------------------------------------------------------------
 // Run
-// ---------------------------------------------------------------------------
 
 async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
     // Install the rustls crypto provider. Both aws-lc-rs and ring features may be
@@ -291,9 +287,7 @@ async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Status
-// ---------------------------------------------------------------------------
 
 async fn cmd_status() -> anyhow::Result<()> {
     let body = http_get(DEFAULT_GATEWAY_ADDR, "/v1/status")
@@ -388,9 +382,7 @@ async fn cmd_status_graph(config_path: PathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Plugin restart
-// ---------------------------------------------------------------------------
 
 async fn cmd_plugin_restart(name: String) -> anyhow::Result<()> {
     let path = format!("/v1/plugins/{name}/restart");
@@ -400,9 +392,7 @@ async fn cmd_plugin_restart(name: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Scaffolding: forge new project
-// ---------------------------------------------------------------------------
 
 fn cmd_init(name: &str) -> anyhow::Result<()> {
     let project_dir = PathBuf::from(name);
@@ -419,12 +409,10 @@ fn cmd_init(name: &str) -> anyhow::Result<()> {
     std::fs::create_dir_all(forge_dir.join("config"))?;
     std::fs::create_dir_all(project_dir.join("frontend"))?;
 
-    // ── Placeholder files for empty dirs ────────────────────────────────
     std::fs::write(project_dir.join("frontend/.gitkeep"), b"")?;
     std::fs::write(forge_dir.join("data/.gitkeep"), b"")?;
     std::fs::write(forge_dir.join("config/.gitkeep"), b"")?;
 
-    // ── Workspace Cargo.toml ────────────────────────────────────────────
     let workspace_cargo = r#"[workspace]
 resolver = "2"
 members = [
@@ -449,7 +437,6 @@ serde_json = "1"
 "#;
     std::fs::write(project_dir.join("Cargo.toml"), workspace_cargo)?;
 
-    // ── forge/forge.toml ────────────────────────────────────────────────
     let forge_toml = r#"forge_config_version = "1.0"
 
 [gateway]
@@ -493,7 +480,6 @@ auth = "app.auth.verify@1.0"
 "#;
     std::fs::write(forge_dir.join("forge.toml"), forge_toml)?;
 
-    // ── Auth plugin ─────────────────────────────────────────────────────
     let auth_cargo = r#"[package]
 name = "forge-plugin-auth"
 version.workspace = true
@@ -650,7 +636,6 @@ requires = []
 "#;
     std::fs::write(plugins_dir.join("auth/plugin.forge.toml"), auth_manifest)?;
 
-    // ── Health plugin ───────────────────────────────────────────────────
     let health_cargo = r#"[package]
 name = "forge-plugin-health"
 version.workspace = true
@@ -766,7 +751,6 @@ requires = []
         health_manifest,
     )?;
 
-    // ── Example plugin ──────────────────────────────────────────────────
     let example_cargo = r#"[package]
 name = "forge-plugin-example"
 version.workspace = true
@@ -865,7 +849,6 @@ requires = []
         example_manifest,
     )?;
 
-    // ── docker-compose.yml ──────────────────────────────────────────────
     let docker_compose = r#"version: "3.8"
 
 services:
@@ -885,11 +868,9 @@ services:
 "#;
     std::fs::write(project_dir.join("docker-compose.yml"), docker_compose)?;
 
-    // ── .gitignore ──────────────────────────────────────────────────────
     let gitignore = "target/\n*.swp\n*.sock\n*.pem\n.env\n.direnv/\n";
     std::fs::write(project_dir.join(".gitignore"), gitignore)?;
 
-    // ── README.md ───────────────────────────────────────────────────────
     let readme = format!(
         r#"# {name}
 
@@ -899,20 +880,6 @@ A backend powered by [Forge](https://forge.dev).
 
 ```
 {name}/
-├── frontend/       # Your UI (React, Vue, Svelte, …)
-├── forge/          # Backend runtime
-│   ├── forge.toml  # Configuration
-│   ├── plugins/    # Business logic plugins
-│   │   ├── auth/   # Login + token verification
-│   │   ├── health/ # Health + version info
-│   │   ├── example/# Demo alerts + echo
-│   │   └── calculator/  # Demo arithmetic (added by forge new plugin)
-│   ├── data/       # Persistent storage
-│   └── config/     # Instance-specific config
-├── Cargo.toml      # Rust workspace for plugin binaries
-├── docker-compose.yml
-├── .gitignore
-└── README.md
 ```
 
 ## Quick start
@@ -1037,9 +1004,7 @@ See https://forge.dev for the full documentation.
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Scaffolding: forge new plugin
-// ---------------------------------------------------------------------------
 
 fn cmd_new_plugin(name: &str, dir: Option<PathBuf>) -> anyhow::Result<()> {
     let plugin_dir = match dir {
@@ -1179,9 +1144,7 @@ requires = []
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Install plugin from registry
-// ---------------------------------------------------------------------------
 
 fn cmd_install(name: &str, dir: Option<PathBuf>) -> anyhow::Result<()> {
     let install_dir = match dir {
@@ -1369,9 +1332,7 @@ requires = []
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Raw HTTP helpers (no external HTTP client dependency)
-// ---------------------------------------------------------------------------
 
 fn http_get(host: &str, path: &str) -> Result<String, String> {
     let mut stream = TcpStream::connect_timeout(

@@ -119,7 +119,6 @@ impl HttpGateway {
         };
 
         // Build router with all routes + fallback, THEN inject state.
-        // NOTE: `.fallback()` must be called BEFORE `.with_state()` so that the
         // state type (`AppState`) is correctly inferred for the fallback handler.
         // Calling `.fallback()` on a `Router<()>` would fail because the fallback
         // handler expects `State<AppState>` which cannot be extracted from `()`.
@@ -288,9 +287,7 @@ impl HttpGateway {
     }
 }
 
-// ---------------------------------------------------------------------------
 // TLS serve helper
-// ---------------------------------------------------------------------------
 
 async fn serve_tls(
     listener: tokio::net::TcpListener,
@@ -367,9 +364,7 @@ async fn serve_tls(
     }
 }
 
-// ---------------------------------------------------------------------------
 // Route pattern matching
-// ---------------------------------------------------------------------------
 
 /// A compiled route pattern for efficient matching.
 #[derive(Debug, Clone)]
@@ -445,9 +440,7 @@ fn match_path(segments: &[PathSegment], path: &str) -> Option<HashMap<String, St
     Some(params)
 }
 
-// ---------------------------------------------------------------------------
 // Shared application state
-// ---------------------------------------------------------------------------
 
 #[derive(Clone)]
 struct AppState {
@@ -461,9 +454,7 @@ struct AppState {
     metrics_registry: PromRegistry,
 }
 
-// ---------------------------------------------------------------------------
 // Global rate limiter (counts across all IPs)
-// ---------------------------------------------------------------------------
 struct RateLimiter {
     max_per_minute: u64,
     entries: Arc<tokio::sync::Mutex<HashMap<IpAddr, RateLimitEntry>>>,
@@ -520,9 +511,7 @@ impl RateLimiter {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Request / response types
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
 struct HttpInvokeRequest {
@@ -573,9 +562,7 @@ struct CapabilityStatus {
     plugin: String,
 }
 
-// ---------------------------------------------------------------------------
 // Error → HTTP status mapping
-// ---------------------------------------------------------------------------
 
 fn invocation_error_status(err: &InvocationError) -> StatusCode {
     match err {
@@ -601,9 +588,7 @@ fn invocation_error_pair(err: &InvocationError) -> (String, String) {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Built-in endpoint handlers
-// ---------------------------------------------------------------------------
 
 async fn metrics_handler(State(state): State<AppState>) -> axum::response::Response {
     use prometheus::Encoder;
@@ -764,9 +749,7 @@ async fn invoke(
     }
 }
 
-// ---------------------------------------------------------------------------
 // Declarative route handler (fallback for all undeclared paths)
-// ---------------------------------------------------------------------------
 
 /// Fallback handler that matches incoming requests against declarative routes
 /// defined in `forge.toml`. Extracts path params, query params, and JSON body,
@@ -780,7 +763,6 @@ async fn declarative_handler(
 ) -> impl IntoResponse {
     let path = uri.path();
 
-    // --- Find matching route ---
     let matched = state.routes.iter().find(|cr| {
         let method_match = cr.route.method.eq_ignore_ascii_case(method.as_str());
         method_match && match_path(&cr.segments, path).is_some()
@@ -801,10 +783,8 @@ async fn declarative_handler(
 
     let path_params = match_path(&route.segments, path).unwrap();
 
-    // --- Extract query params ---
     let query_params: HashMap<String, String> = uri.query().map(parse_query).unwrap_or_default();
 
-    // --- Enforce max body size ---
     if state.max_body_size > 0 && body.len() > state.max_body_size as usize {
         return (
             StatusCode::PAYLOAD_TOO_LARGE,
@@ -818,7 +798,6 @@ async fn declarative_handler(
         );
     }
 
-    // --- Parse body ---
     let body_value: Value = if body.is_empty() {
         Value::Null
     } else {
@@ -827,7 +806,6 @@ async fn declarative_handler(
 
     let request_id = Uuid::new_v4().to_string();
 
-    // --- Auth check (if configured) ---
     if let Some(auth_cap) = &route.route.auth {
         let token = headers
             .get("authorization")
@@ -880,7 +858,6 @@ async fn declarative_handler(
         }
     }
 
-    // --- Build payload from path params + body ---
     let merged_payload = if body_value.is_object() {
         let mut obj = body_value.as_object().unwrap().clone();
         for (k, v) in &path_params {
@@ -961,9 +938,7 @@ async fn declarative_handler(
     }
 }
 
-// ---------------------------------------------------------------------------
 // Utility functions
-// ---------------------------------------------------------------------------
 
 /// Parse a URL query string into a key-value map.
 fn parse_query(query: &str) -> HashMap<String, String> {
@@ -1020,9 +995,7 @@ fn base64_encode(input: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(input)
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -230,8 +230,6 @@ async fn restart_state_machine() {
     );
 }
 
-// ---- test fakes ------------------------------------------------------------
-
 struct FakePlugin {
     capabilities: Vec<Capability>,
     drain_called: Arc<AtomicBool>,

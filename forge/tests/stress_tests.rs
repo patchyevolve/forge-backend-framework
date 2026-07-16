@@ -21,8 +21,6 @@ use forgecore_backend_framework_daemon::proto::{
     InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
 };
 
-// ---- helpers ----------------------------------------------------------------
-
 fn memory_kb() -> u64 {
     std::fs::read_to_string("/proc/self/status")
         .ok()
@@ -116,8 +114,6 @@ async fn join_all<T: Send + 'static>(handles: Vec<tokio::task::JoinHandle<T>>) -
     }
     results
 }
-
-// ---- stress plugins --------------------------------------------------------
 
 struct FailAfterNPlugin {
     cap_name: &'static str,
@@ -256,8 +252,6 @@ impl ForgePlugin for HealthyPlugin {
     }
 }
 
-// ---- server helper ---------------------------------------------------------
-
 async fn serve(plugin: impl ForgePlugin + 'static) -> (String, tokio::task::JoinHandle<()>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -310,8 +304,6 @@ fn no_restart_lc() -> PluginLifecycleConfig {
     }
 }
 
-// ---- 1,000 concurrent dispatches ------------------------------------------
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_1000_dispatches() {
     let kernel = Kernel::start(KernelConfig::default());
@@ -353,8 +345,6 @@ async fn concurrent_1000_dispatches() {
     );
     assert_eq!(failures, 0, "all 1,000 dispatches should succeed");
 }
-
-// ---- multiple concurrent capabilities -------------------------------------
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn multiple_concurrent_capabilities() {
@@ -411,8 +401,6 @@ async fn multiple_concurrent_capabilities() {
     assert_eq!(successes, 200, "all chained dispatches should succeed");
 }
 
-// ---- kill a plugin while requests keep coming -----------------------------
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn kill_plugin_under_sustained_load() {
     let plugin = FailAfterNPlugin {
@@ -448,8 +436,6 @@ async fn kill_plugin_under_sustained_load() {
     assert_eq!(successes, 50, "exactly 50 should succeed before failure");
     assert!(failures > 0, "remaining requests should fail");
 }
-
-// ---- restart loops while other plugins are busy ----------------------------
 
 fn crash_lc() -> PluginLifecycleConfig {
     PluginLifecycleConfig {
@@ -509,8 +495,6 @@ async fn rapid_restart_loops_under_load() {
     );
 }
 
-// ---- pushing big payloads through (1MB, 5MB, 10MB) -------------------------
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn large_payloads() {
     let kernel = Kernel::start(KernelConfig::default());
@@ -547,8 +531,6 @@ async fn large_payloads() {
     }
 }
 
-// ---- hammer it with 10k sequential requests, check for leaks ---------------
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn sequential_requests_no_leak() {
     let kernel = Kernel::start(KernelConfig::default());
@@ -582,8 +564,6 @@ async fn sequential_requests_no_leak() {
         "memory leak detected: +{mem_delta}KB > 30MB"
     );
 }
-
-// ---- alternate zero-deadline and long-deadline requests --------------------
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn deadline_hammering() {
@@ -619,8 +599,6 @@ async fn deadline_hammering() {
     );
     assert_eq!(successes, 250, "all fresh-deadline requests should succeed");
 }
-
-// ---- 5000 concurrent registry lookups --------------------------------------
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn registry_contention() {
@@ -659,8 +637,6 @@ async fn registry_contention() {
     join_all(lookup_handles).await;
     stats.report("5,000 concurrent registry lookups");
 }
-
-// ---- register and deregister from many threads at once ---------------------
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn simultaneous_register_deregister() {
