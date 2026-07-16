@@ -13,29 +13,29 @@ Every major feature and the test(s) that exercise it:
 
 | Feature | Test(s) | Location |
 |---|---|---|
-| Configuration loading | `config::tests::default_config_loads`, `parse_valid_forge_toml`, `manifest_dir_resolved_against_config_dir` | `crates/forge-core/src/config/mod.rs` |
-| Environment variable overrides | `config::tests::env_overrides_apply_string`, `env_overrides_apply_bool`, `env_overrides_do_not_apply_when_unset`, `load_config_uses_env_overrides` | `crates/forge-core/src/config/mod.rs` |
-| Manifest version validation | `config::tests::reject_unsupported_manifest_version` | `crates/forge-core/src/config/mod.rs` |
-| Manifest discovery | `config::tests::discover_no_manifest_dir`, `manifest_dir_resolved_against_config_dir` | `crates/forge-core/src/config/mod.rs` |
-| Registry — register/lookup | `registry::tests::register_and_lookup`, `lookup_nonexistent_capability`, `version_mismatch_returns_none` | `crates/forge-core/src/registry/mod.rs` |
-| Registry — deregister | `registry::tests::deregister_plugin` | `crates/forge-core/src/registry/mod.rs` |
-| Registry — list | `registry::tests::list_capabilities` | `crates/forge-core/src/registry/mod.rs` |
-| Lifecycle state machine | `lifecycle::tests::happy_path`, `full_lifecycle`, `health_check_recovery`, `illegal_stopped_to_ready`, `reentry_from_stopped`, `draining_path` | `crates/forge-core/src/lifecycle/mod.rs` |
-| Bus — dispatch to missing capability | `bus::tests::dispatch_to_nonexistent_plugin` | `crates/forge-core/src/bus/mod.rs` |
-| Bus — deadline enforcement | `bus::tests::deadline_already_past` | `crates/forge-core/src/bus/mod.rs` |
-| Lifecycle — real gRPC connection | `lifecycle_integration::lifecycle_connects_to_plugin_and_routes_invocation` | `crates/forge-core/tests/lifecycle_integration.rs` |
-| Lifecycle — drain and shutdown | `lifecycle_integration::shutdown_calls_drain_on_plugin` | `crates/forge-core/tests/lifecycle_integration.rs` |
-| Lifecycle — restart state machine | `lifecycle_integration::restart_state_machine` | `crates/forge-core/tests/lifecycle_integration.rs` |
+| Configuration loading | `config::tests::default_config_loads`, `parse_valid_forge_toml`, `manifest_dir_resolved_against_config_dir` | `forge/src/config.rs` |
+| Environment variable overrides | `config::tests::env_overrides_apply_string`, `env_overrides_apply_bool`, `env_overrides_do_not_apply_when_unset`, `load_config_uses_env_overrides` | `forge/src/config.rs` |
+| Manifest version validation | `config::tests::reject_unsupported_manifest_version` | `forge/src/config.rs` |
+| Manifest discovery | `config::tests::discover_no_manifest_dir`, `manifest_dir_resolved_against_config_dir` | `forge/src/config.rs` |
+| Registry — register/lookup | `registry::tests::register_and_lookup`, `lookup_nonexistent_capability`, `version_mismatch_returns_none` | `forge/src/registry.rs` |
+| Registry — deregister | `registry::tests::deregister_plugin` | `forge/src/registry.rs` |
+| Registry — list | `registry::tests::list_capabilities` | `forge/src/registry.rs` |
+| Lifecycle state machine | `lifecycle::tests::happy_path`, `full_lifecycle`, `health_check_recovery`, `illegal_stopped_to_ready`, `reentry_from_stopped`, `draining_path` | `forge/src/lifecycle.rs` |
+| Bus — dispatch to missing capability | `bus::tests::dispatch_to_nonexistent_plugin` | `forge/src/bus.rs` |
+| Bus — deadline enforcement | `bus::tests::deadline_already_past` | `forge/src/bus.rs` |
+| Lifecycle — real gRPC connection | `lifecycle_integration::lifecycle_connects_to_plugin_and_routes_invocation` | `forge/tests/lifecycle_integration.rs` |
+| Lifecycle — drain and shutdown | `lifecycle_integration::shutdown_calls_drain_on_plugin` | `forge/tests/lifecycle_integration.rs` |
+| Lifecycle — restart state machine | `lifecycle_integration::restart_state_machine` | `forge/tests/lifecycle_integration.rs` |
 | Crash detection + restart | `test_kill_resilience.sh` (6 phases) | `test_kill_resilience.sh` |
 | Full committed-backend chain | `test_committed_backend.sh` (8 tests) | `test_committed_backend.sh` |
 | Request ID propagation | Verified in `test_committed_backend.sh` output (UUID traces across router→auth→data) | End-to-end log inspection |
 | Embedding API | `examples/embedded-minimal/` (19-line crate) | `examples/embedded-minimal/` |
 | Offline build + run | `test_offline_build.sh` (strace-verified zero connect calls) | `test_offline_build.sh` |
-| Minimal build profile | Manual: `cargo build -p forge-core --no-default-features` (zero warnings) | `crates/forge-core/Cargo.toml` |
-| CLI — run, status, restart | `test_committed_backend.sh` exercises all three | `crates/forge-cli/src/main.rs` |
-| CLI — status --graph | Manual: `forge status --graph` parses manifests without running kernel | `crates/forge-cli/src/main.rs` |
-| File-watch hot reload | Manual: `[plugins] watch = true` polls manifests every 3s | `crates/forge-cli/src/main.rs` |
-| Protocol versioning | `Register` handshake in `lifecycle_integration.rs` exercises proto compat | Proto definition at `crates/forge-proto/proto/` |
+| Minimal build profile | Manual: `cargo build -p forge --no-default-features` (zero warnings) | `forge/Cargo.toml` |
+| CLI — run, status, restart | `test_committed_backend.sh` exercises all three | `cli/src/main.rs` |
+| CLI — status --graph | Manual: `forge status --graph` parses manifests without running kernel | `cli/src/main.rs` |
+| File-watch hot reload | Manual: `[plugins] watch = true` polls manifests every 3s | `cli/src/main.rs` |
+| Protocol versioning | `Register` handshake in `lifecycle_integration.rs` exercises proto compat | Proto definition at `proto/` |
 
 ---
 
@@ -56,20 +56,17 @@ cargo test
 # Production build — no dev-only dependencies leaked
 cargo build --release -p forge-cli
 
-# Minimal/embedded profile — no tonic required
-cargo build -p forge-core --no-default-features
+# Minimal/embedded profile — no gateway+sdk features required
+cargo build -p forge --no-default-features
 
 # Offline build proof — all crate sources already cached by `cargo fetch`
 cargo build --offline
 
 # Dry-run publish — confirm all metadata is crates.io-compatible
-cargo package -p forge-proto
-cargo package -p forge-plugin-sdk-rust
-cargo package -p forge-core
+cargo package -p forge
 
-# The following crates are intentionally not publishable:
-#   forge-gateway — internal transport layer
-#   forge-cli     — binary, not a library
+# The following binaries are intentionally not published separately:
+#   forge-cli     — ships as part of the `forge` crate release
 ```
 
 ### Expected outcomes
@@ -78,13 +75,11 @@ cargo package -p forge-core
 |---|---|
 | `cargo fmt --check` | Exit 0, no output |
 | `cargo clippy --all-targets -- -D warnings` | Exit 0, zero warnings |
-| `cargo test` | 27 passed, 0 failed |
+| `cargo test` | 100+ passed, 0 failed |
 | `cargo build --release -p forge-cli` | Single static binary at `target/release/forge` |
-| `cargo build -p forge-core --no-default-features` | Clean compile, 0 warnings |
+| `cargo build -p forge --no-default-features` | Clean compile, 0 warnings |
 | `cargo build --offline` | Clean compile, 0 network `connect()` syscalls |
-| `cargo package -p forge-proto` | `.crate` tarball with `proto/` included |
-| `cargo package -p forge-plugin-sdk-rust` | `.crate` tarball, `path` deps stripped to version |
-| `cargo package -p forge-core` | `.crate` tarball, `path` dep on `forge-proto` correctly versioned |
+| `cargo package -p forge` | `.crate` tarball with `proto/` and all features |
 
 ---
 
@@ -140,9 +135,9 @@ Intentionally documented limitations — not bugs, but design choices or deferre
 
 | Limitation | Where | Reason |
 |---|---|---|
-| **RoundRobin resolution is a stub** | `crates/forge-core/src/registry/mod.rs:116-119` | `FirstReadyWins` covers the shipped use case; full round-robin requires per-capability index tracking. Documented inline with a `//` comment. |
-| **File watching uses polling (3s interval)** | `crates/forge-cli/src/main.rs:111-129` | Polling avoids a dependency on platform-specific notification APIs (inotify, kqueue, FSEvents). Adequate for development and moderate-scale deployments. |
-| **Crash detection by `tonic::Code::Unavailable`** | `crates/forge-core/src/lifecycle/manager.rs:372` | The current implementation treats any gRPC `Unavailable` error as a crash. A plugin that restarts its gRPC listener without changing its address will be briefly (≤1 health-check interval) misidentified as dead. This is within spec — TRD §6 permits transient misdetection within the health-check budget. |
+| **RoundRobin resolution is a stub** | `forge/src/registry.rs:116-119` | `FirstReadyWins` covers the shipped use case; full round-robin requires per-capability index tracking. Documented inline with a `//` comment. |
+| **File watching uses polling (3s interval)** | `cli/src/main.rs:111-129` | Polling avoids a dependency on platform-specific notification APIs (inotify, kqueue, FSEvents). Adequate for development and moderate-scale deployments. |
+| **Crash detection by `tonic::Code::Unavailable`** | `forge/src/lifecycle/manager.rs:372` | The current implementation treats any gRPC `Unavailable` error as a crash. A plugin that restarts its gRPC listener without changing its address will be briefly (≤1 health-check interval) misidentified as dead. This is within spec — TRD §6 permits transient misdetection within the health-check budget. |
 | **Plugin processes are not sandboxed** | All `ManagedSubprocess` transport paths | Forge's threat model (TRD §8) explicitly assumes plugins are trusted code. No OS-level sandboxing (seccomp, Landlock, SELinux, container isolation) is applied. If sandboxing is required, it must be configured externally (systemd unit hardening, container runtime, etc.). |
 | **Metrics endpoint is documented but not implemented** | `docs/06-operators-guide.md:334-343` | The `/metrics` endpoint and Prometheus counters are defined in the Operator's Guide as a forward-looking reference. The `metrics` build feature exists in the distribution spec but is not wired in the current gateway code. A production deployment should add a metrics middleware before relying on this endpoint. |
 
@@ -154,13 +149,13 @@ The following are considered stable interfaces for Forge v1.0. A breaking change
 
 ### 6.1 Public Rust APIs
 
-- `forge_core::bus::{Bus, Invocation, InvocationError, HandlerFn, PluginConnection}`
-- `forge_core::registry::{Registry, PluginHandle, CapabilitySummary, ResolutionStrategy}`
-- `forge_core::lifecycle::{PluginState, Manager}` (Manager is gated behind `feature = "tonic"`)
-- `forge_core::config::{ForgeConfig, ConfigLoader, PluginManifest, PluginLifecycleConfig, PluginCapabilitiesDecl, DiscoveredPlugin}`
-- `forge_core::kernel::{Kernel, KernelConfig}`
-- `forge_proto::{InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse, Capability, HealthCheckRequest, HealthCheckResponse, DrainRequest, DrainResponse, PluginError}`
-- `forge_plugin_sdk::{Plugin, PluginServer, KernelClient, InvokeContext, InvokeResult}`
+- `forge::bus::{Bus, Invocation, InvocationError, HandlerFn, PluginConnection}`
+- `forge::registry::{Registry, PluginHandle, CapabilitySummary, ResolutionStrategy}`
+- `forge::lifecycle::{PluginState, Manager}` (Manager is gated behind `feature = "gateway"`)
+- `forge::config::{ForgeConfig, ConfigLoader, PluginManifest, PluginLifecycleConfig, PluginCapabilitiesDecl, DiscoveredPlugin}`
+- `forge::kernel::{Kernel, KernelConfig}`
+- `forge::proto::{InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse, Capability, HealthCheckRequest, HealthCheckResponse, DrainRequest, DrainResponse, PluginError}`
+- `forge::sdk::{Plugin, PluginServer, KernelClient, InvokeContext, InvokeResult}`
 
 ### 6.2 Protocol Compatibility
 
@@ -222,13 +217,11 @@ jobs:
         profile: [release, no-default-features]
     steps:
       - cargo build --profile ${{ matrix.profile == 'release' && '--release' || '' }}
-        ${{ matrix.profile == 'no-default-features' && '-p forge-core --no-default-features' || '-p forge-cli' }}
+        ${{ matrix.profile == 'no-default-features' && '-p forge --no-default-features' || '-p forge-cli' }}
 
   publish-dry-run:
     steps:
-      - cargo package -p forge-proto
-      - cargo package -p forge-plugin-sdk-rust
-      - cargo package -p forge-core
+      - cargo package -p forge
 
   offline-build:
     steps:
@@ -247,9 +240,7 @@ jobs:
   Catches missing files, bad manifests, broken build scripts.
 
 **SemVer/API review — ensure public APIs are stable before publishing 1.0:**
-- `forge-core`
-- `forge-plugin-sdk-rust`
-- `forge-proto`
+- `forge` (monolithic crate with feature flags)
 
 ### Tier 2 — Production Hardening
 

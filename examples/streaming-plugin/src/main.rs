@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use forge_plugin_sdk_rust::{
+use forge::{
     Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
 };
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ struct PageResponse {
 
 struct StreamingPlugin;
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::async_trait]
 impl Plugin for StreamingPlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("forge.example.stream", "1.0")]

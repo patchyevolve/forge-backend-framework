@@ -112,7 +112,7 @@ forge run
 
 | Language | Package | Status |
 |---|---|---|
-| Rust | `forge-plugin-sdk-rust` | Stable |
+| Rust | `forge` crate (`forge::sdk` module) | Stable |
 | Python | Example (`plugin.py`) | Reference |
 
 A plugin is a self-contained process that implements the Forge plugin protocol (gRPC). It registers capabilities at startup and invokes them on demand.

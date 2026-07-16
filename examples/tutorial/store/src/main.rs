@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use forge_plugin_sdk_rust::{
+use forge::{
     Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
 };
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ struct StorePlugin {
     records: Mutex<Vec<(String, String)>>,
 }
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::async_trait]
 impl Plugin for StorePlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("forge.example.store.put", "1.0.0")]

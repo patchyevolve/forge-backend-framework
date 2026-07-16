@@ -1,11 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/forge-proto",
-    "crates/forge-core",
-    "crates/forge-gateway",
-    "crates/forge-cli",
-    "crates/forge-plugin-sdk-rust",
+    "forge",
+    "cli",
     "examples/echo-rs",
     "examples/embedded-minimal",
     "examples/streaming-plugin",

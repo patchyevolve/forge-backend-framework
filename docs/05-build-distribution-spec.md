@@ -14,20 +14,35 @@ Forge delivers three distribution shapes from one codebase:
 
 ```
 forge-core/
-├── Cargo.toml                      # workspace root
-├── crates/
-│   ├── forge-core/                  # kernel logic: lifecycle, registry, bus, config
-│   ├── forge-proto/                 # generated Rust stubs from the .proto
-│   ├── forge-gateway/               # gRPC + HTTP listeners
-│   ├── forge-cli/                   # the `forge` binary
-│   └── forge-plugin-sdk-rust/       # optional convenience crate for Rust plugin authors
+├── Cargo.toml              # workspace root
+├── forge/                   # monolithic library crate (kernel + gateway + proto + SDK)
+│   ├── Cargo.toml
+│   ├── build.rs             # protobuf codegen via tonic-build
+│   └── src/
+│       ├── lib.rs           # feature-gated modules
+│       ├── bus.rs           # dispatch, invocation, error types
+│       ├── config.rs        # TOML config loading
+│       ├── kernel.rs        # Kernel embedding API
+│       ├── lifecycle.rs     # PluginState + Manager
+│       ├── proto.rs         # generated protobuf stubs
+│       ├── registry.rs      # capability registry (DashMap-based)
+│       ├── sdk.rs           # Plugin trait, PluginServer, KernelClient
+│       └── gateway/         # gRPC + HTTP listeners (feature = "gateway")
+│           ├── mod.rs
+│           ├── grpc.rs
+│           └── http.rs
+├── cli/                     # the `forge` binary crate
+│   ├── Cargo.toml
+│   └── src/main.rs
 ├── proto/
-│   └── forge_plugin_v1.proto        # canonical protobuf definition
-├── plugins-official/                # official plugins (auth example, etc.)
-└── examples/                        # example projects
+│   └── forge_plugin_v1.proto
+├── plugins-official/        # official plugins (auth, data, router)
+├── examples/                # example projects and tutorials
+└── systemd/
+    └── forge.service        # systemd unit for daemon deployment
 ```
 
-The workspace boundary between `forge-core` and `forge-gateway` is deliberate: an embedder who only needs the registry/bus/lifecycle logic depends on `forge-core` alone and never pulls in `forge-gateway`'s listeners.
+The `gateway` feature flag is off by default when using `forge` as a library — an embedder who only needs the registry/bus/lifecycle logic depends on `forge` without the `gateway` feature and never pulls in axum/tonic listeners.
 
 ## 3. The Three Distribution Shapes
 
@@ -54,11 +69,11 @@ forge --version
 ```toml
 # Cargo.toml
 [dependencies]
-forge-core = "1.0"
+forge = { version = "1.0", default-features = false }
 ```
 
 ```rust
-use forge_backend::kernel::{Kernel, KernelConfig};
+use forge::kernel::{Kernel, KernelConfig};
 
 let config = KernelConfig::from_file("forge.toml")?;
 let kernel = Kernel::start(config);
@@ -85,10 +100,10 @@ forge run
 `forge init` creates:
 - A Cargo workspace with plugin crates
 - `forge/forge.toml` with routes and plugin definitions
-- Starter plugins (auth, health, example, calculator)
+- Starter plugins (auth, health, example)
 - `docker-compose.yml`, `.gitignore`, `README.md`
 
-## 4. The forge-core Public API
+## 4. The forge Public API
 
 ```rust
 pub struct Kernel { /* ... */ }
@@ -118,15 +133,13 @@ impl Bus {
 
 | Feature | Default | Effect |
 |---|---|---|
-| `gateway-grpc` | on (forge-cli), off (forge-core) | tonic gRPC listener |
-| `gateway-http` | on (forge-cli), off (forge-core) | axum HTTP listener |
-| `metrics` | off | Prometheus `/metrics` endpoint |
-| `tls` | on | rustls TLS termination |
+| `gateway` | on (default), off (library) | axum HTTP listener + tonic gRPC listener |
+| `sdk` | on (default), off (library) | `Plugin` trait, `PluginServer`, `KernelClient` |
 
 An embedder who wants zero transport code:
 
 ```toml
-forge-core = { version = "1.0", default-features = false }
+forge = { version = "1.0", default-features = false }
 ```
 
 ## 6. Reproducibility

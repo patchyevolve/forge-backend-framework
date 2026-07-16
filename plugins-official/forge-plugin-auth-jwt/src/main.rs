@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use forge_plugin_sdk_rust::{Capability, InvokeContext, InvokeResult, PluginError, PluginServer};
+use forge::{Capability, InvokeContext, InvokeResult, PluginError, PluginServer};
 
 struct AuthJwtPlugin;
 
-#[forge_plugin_sdk_rust::async_trait]
-impl forge_plugin_sdk_rust::Plugin for AuthJwtPlugin {
+#[forge::async_trait]
+impl forge::Plugin for AuthJwtPlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("forge.auth.verify", "1.0.0")]
     }

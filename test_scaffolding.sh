@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Integration tests for CLI scaffolding: forge new project, forge new plugin, forge install.
+# Integration tests for CLI scaffolding: forge init, forge new plugin, forge install.
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 FORGE_BIN="$ROOT/target/release/forge"
@@ -19,10 +19,10 @@ trap cleanup EXIT
 
 TMPDIR="$(mktemp -d)"
 
-# ---- Test 1: forge new project ----------------------------------------------
-echo "=== Test 1: forge new project ==="
+# ---- Test 1: forge init (bootstrap project) ----------------------------------
+echo "=== Test 1: forge init ==="
 cd "$TMPDIR"
-"$FORGE_BIN" new project my-api 2>&1
+"$FORGE_BIN" init my-api 2>&1
 if [ -f "my-api/forge.toml" ] && [ -d "my-api/plugins" ]; then
     echo "PASS: Project created with forge.toml and plugins/"
 else
@@ -54,10 +54,10 @@ else
 fi
 
 # Verify plugin files
-if grep -q "forge-plugin-sdk-rust" "plugins/my-handler/Cargo.toml"; then
-    echo "PASS: Cargo.toml has sdk dependency"
+if grep -q 'forge = "' "plugins/my-handler/Cargo.toml"; then
+    echo "PASS: Cargo.toml has forge dependency"
 else
-    echo "FAIL: Cargo.toml missing sdk dependency"
+    echo "FAIL: Cargo.toml missing forge dependency"
     exit 1
 fi
 
@@ -134,10 +134,10 @@ else
     exit 1
 fi
 
-# ---- Test 7: forge new project fails if exists -------------------------------
-echo "=== Test 7: forge new project duplicate ==="
+# ---- Test 7: forge init fails if already exists ------------------------------
+echo "=== Test 7: forge init duplicate ==="
 cd "$TMPDIR"
-RESULT=$("$FORGE_BIN" new project my-api 2>&1 || true)
+RESULT=$("$FORGE_BIN" init my-api 2>&1 || true)
 if echo "$RESULT" | grep -qi "already exists"; then
     echo "PASS: Duplicate project rejected"
 else

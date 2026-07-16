@@ -1,9 +1,9 @@
-use forge_plugin_sdk_rust::{Capability, InvokeContext, InvokeResult, PluginError, PluginServer};
+use forge::{Capability, InvokeContext, InvokeResult, PluginError, PluginServer};
 
 struct EchoPlugin;
 
-#[forge_plugin_sdk_rust::async_trait]
-impl forge_plugin_sdk_rust::Plugin for EchoPlugin {
+#[forge::async_trait]
+impl forge::Plugin for EchoPlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("forge.example.echo", "1.0.0")]
     }

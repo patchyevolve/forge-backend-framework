@@ -1,6 +1,6 @@
 # Plugin Developer's Guide
 
-A Forge plugin is a standalone Rust binary that implements the `Plugin` trait from `forge-plugin-sdk-rust`. Forge spawns it as a managed subprocess, connects via gRPC, learns its capabilities, and routes invocations to it.
+A Forge plugin is a standalone Rust binary that implements the `Plugin` trait from the `forge` crate's `sdk` module. Forge spawns it as a managed subprocess, connects via gRPC, learns its capabilities, and routes invocations to it.
 
 ## 1. How It Works
 
@@ -33,7 +33,7 @@ Every plugin is a gRPC server that implements four RPCs:
 | `HealthCheck` | Kernel → Plugin | Are you alive? (periodic) |
 | `Drain` | Kernel → Plugin | Graceful shutdown requested |
 
-The `forge-plugin-sdk-rust` crate wraps these into a simple Rust trait so you never touch gRPC directly.
+The `forge::sdk` module wraps these into a simple Rust trait so you never touch gRPC directly.
 
 ## 2. Quick Start: Your First Plugin
 
@@ -58,14 +58,14 @@ forge/plugins/my-capability/
 Edit `src/main.rs`:
 
 ```rust
-use forge_plugin_sdk_rust::{
+use forge::sdk::{
     Capability, InvokeContext, InvokeResult, Plugin, PluginServer,
 };
-use forge_plugin_sdk_rust::PluginError;
+use forge::sdk::PluginError;
 
 struct MyPlugin;
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::sdk::async_trait]
 impl Plugin for MyPlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![

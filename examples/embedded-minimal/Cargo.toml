@@ -5,6 +5,6 @@ edition = "2021"
 publish = false
 
 [dependencies]
-forge-backend = { path = "../../crates/forge-core" }
+forge = { path = "../../forge" }
 tokio = { workspace = true }
 bytes.workspace = true

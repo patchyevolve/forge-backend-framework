@@ -1,10 +1,10 @@
-use forge_plugin_sdk_rust::{
+use forge::{
     Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
 };
 
 struct UpperPlugin;
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::async_trait]
 impl Plugin for UpperPlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("forge.example.text.upper", "1.0")]

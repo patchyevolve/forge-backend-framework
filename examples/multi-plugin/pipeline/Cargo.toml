@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-forge-plugin-sdk-rust = { version = "1.0", path = "../../../crates/forge-plugin-sdk-rust" }
+forge = { path = "../../../forge" }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

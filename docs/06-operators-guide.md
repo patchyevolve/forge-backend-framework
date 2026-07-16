@@ -361,7 +361,7 @@ Prometheus-format counters for:
 FORGE_LOG_LEVEL=debug forge run
 
 # Via env var
-RUST_LOG=forge_backend=debug,forge_gateway=info forge run
+RUST_LOG=forge=debug forge run
 ```
 
 ---

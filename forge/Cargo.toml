@@ -1,0 +1,49 @@
+[package]
+name = "forge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Backend operating environment — kernel, gateway, plugin SDK, and CLI"
+repository = "https://github.com/patchyevolve/forge-backend-framework"
+
+[features]
+default = ["gateway", "sdk"]
+gateway = ["dep:axum", "dep:tower-http", "dep:hyper", "dep:base64", "dep:hyper-util", "dep:tokio-rustls", "dep:rustls-pemfile", "dep:prometheus", "dep:tokio-stream"]
+sdk = ["dep:async-trait"]
+
+[dependencies]
+tokio.workspace = true
+tonic = { workspace = true, features = ["tls", "tls-webpki-roots"] }
+prost.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+dashmap.workspace = true
+tracing.workspace = true
+semver.workspace = true
+bytes.workspace = true
+uuid.workspace = true
+rustls.workspace = true
+
+# gateway feature
+axum = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+hyper = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+hyper-util = { version = "0.1", optional = true }
+tokio-rustls = { version = "0.26", optional = true }
+rustls-pemfile = { version = "2", optional = true }
+prometheus = { workspace = true, optional = true }
+tokio-stream = { workspace = true, optional = true }
+
+# sdk feature
+async-trait = { version = "0.1", optional = true }
+
+[build-dependencies]
+tonic-build = "0.12"
+protoc-bin-vendored = "3"
+
+[dev-dependencies]
+temp-env = "0.3"

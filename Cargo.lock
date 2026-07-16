@@ -336,7 +336,7 @@ name = "embedded-minimal"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "forge-backend",
+ "forge",
  "tokio",
 ]
 
@@ -393,22 +393,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
-name = "forge-backend"
+name = "forge"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "axum",
+ "base64",
  "bytes",
  "dashmap",
- "forge-proto",
+ "hyper",
+ "hyper-util",
+ "prometheus",
+ "prost",
+ "protoc-bin-vendored",
+ "rustls",
+ "rustls-pemfile",
  "semver",
  "serde",
  "serde_json",
  "temp-env",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-rustls",
  "tokio-stream",
  "toml",
  "tonic",
+ "tonic-build",
+ "tower-http",
  "tracing",
  "uuid",
 ]
@@ -419,9 +431,7 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
- "forge-backend",
- "forge-gateway",
- "forge-proto",
+ "forge",
  "rustls",
  "serde",
  "serde_json",
@@ -435,7 +445,7 @@ name = "forge-example-custom-capability"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",
@@ -448,7 +458,7 @@ name = "forge-example-middleware"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",
@@ -461,7 +471,7 @@ name = "forge-example-multi-pipeline"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -472,7 +482,7 @@ name = "forge-example-multi-upper"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -483,7 +493,7 @@ name = "forge-example-streaming"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",
@@ -492,38 +502,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "forge-gateway"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "axum",
- "base64",
- "bytes",
- "forge-backend",
- "forge-proto",
- "hyper",
- "hyper-util",
- "prometheus",
- "prost",
- "rustls",
- "rustls-pemfile",
- "semver",
- "serde",
- "serde_json",
- "tokio",
- "tokio-rustls",
- "tonic",
- "tower-http",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "forge-plugin-auth-jwt"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",
@@ -536,7 +519,7 @@ name = "forge-plugin-data-sqlite"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "rusqlite",
  "serde",
  "serde_json",
@@ -550,7 +533,7 @@ name = "forge-plugin-echo-rs"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -561,35 +544,12 @@ name = "forge-plugin-http-router"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "forge-plugin-sdk-rust"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "forge-proto",
- "tokio",
- "tokio-stream",
- "tonic",
- "tracing",
-]
-
-[[package]]
-name = "forge-proto"
-version = "1.0.0"
-dependencies = [
- "prost",
- "protoc-bin-vendored",
- "tonic",
- "tonic-build",
 ]
 
 [[package]]
@@ -1997,7 +1957,7 @@ name = "tutorial-count"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -2008,7 +1968,7 @@ name = "tutorial-ingest"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",
@@ -2021,7 +1981,7 @@ name = "tutorial-process"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",
@@ -2034,7 +1994,7 @@ name = "tutorial-store"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forge-plugin-sdk-rust",
+ "forge",
  "serde",
  "serde_json",
  "tokio",

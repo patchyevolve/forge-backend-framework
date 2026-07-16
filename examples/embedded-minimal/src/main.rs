@@ -1,5 +1,5 @@
-use forge_backend::bus::Invocation;
-use forge_backend::kernel::{Kernel, KernelConfig};
+use forge::bus::Invocation;
+use forge::kernel::{Kernel, KernelConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

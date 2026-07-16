@@ -475,7 +475,7 @@ async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
 Use `KernelClient` to call capabilities through the kernel:
 
 ```rust
-use forge_plugin_sdk_rust::KernelClient;
+use forge::sdk::KernelClient;
 
 async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
     let kernel = KernelClient::connect("http://127.0.0.1:9090").await
@@ -635,7 +635,7 @@ On Ctrl+C:
 
 | Variable | Purpose |
 |---|---|
-| `RUST_LOG` | Per-module log filtering (e.g., `forge_backend=debug,info`) |
+| `RUST_LOG` | Per-module log filtering (e.g., `forge=debug,info`) |
 | `FORGE_LOG_LEVEL` | Global log level (trace, debug, info, warn, error) |
 
 ## Troubleshooting

@@ -163,7 +163,7 @@ message DrainRequest {
 message DrainResponse {}
 ```
 
-The Rust SDK (`forge-plugin-sdk-rust`) wraps this into a `Plugin` trait so users never touch protobuf directly. Other languages compile this `.proto` with their standard `protoc` toolchain.
+The Rust SDK (`forge::sdk`) wraps this into a `Plugin` trait so users never touch protobuf directly. Other languages compile this `.proto` with their standard `protoc` toolchain.
 
 ### RPC Semantics
 
@@ -216,6 +216,6 @@ In this case the HTTP gateway automatically forwards the JSON body as-is to the 
 
 | Language | Package | Approach |
 |---|---|---|
-| Rust | `forge-plugin-sdk-rust` | Implements `Plugin` trait, wraps `PluginServer` |
+| Rust | `forge::sdk` | Implements `Plugin` trait, wraps `PluginServer` |
 | Python | Manual | Compile `.proto`, implement the gRPC service |
 | Any gRPC language | Manual | Compile `.proto`, implement 4 RPCs |

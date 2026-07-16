@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use forge_plugin_sdk_rust::{
+use forge::{
     Capability, InvokeContext, InvokeResult, KernelClient, PluginError, PluginServer,
 };
 
 struct HttpRouterPlugin;
 
-#[forge_plugin_sdk_rust::async_trait]
-impl forge_plugin_sdk_rust::Plugin for HttpRouterPlugin {
+#[forge::async_trait]
+impl forge::Plugin for HttpRouterPlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("forge.http.route", "1.0.0")]
     }

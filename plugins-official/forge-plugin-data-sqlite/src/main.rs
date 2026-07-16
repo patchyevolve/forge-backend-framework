@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use forge_plugin_sdk_rust::{Capability, InvokeContext, InvokeResult, PluginError, PluginServer};
+use forge::{Capability, InvokeContext, InvokeResult, PluginError, PluginServer};
 
 struct DataSqlitePlugin {
     db: Mutex<rusqlite::Connection>,
 }
 
-#[forge_plugin_sdk_rust::async_trait]
-impl forge_plugin_sdk_rust::Plugin for DataSqlitePlugin {
+#[forge::async_trait]
+impl forge::Plugin for DataSqlitePlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![
             Capability::new("forge.data.query", "1.0.0"),

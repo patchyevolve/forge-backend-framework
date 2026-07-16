@@ -54,7 +54,7 @@ The core idea: **plugins register capabilities** (named, versioned operations). 
 
 ## 3. Kernel Modules
 
-### 3.1 Registry (`forge-core/src/registry/`)
+### 3.1 Registry (`forge/src/registry.rs`)
 
 A concurrent, versioned map from capability name to plugin handle. This is the single source of truth for "what can the system currently do."
 
@@ -68,7 +68,7 @@ Operations:
 
 Multiple plugins can register the same capability name (e.g. two instances of a data plugin for sharding). Forge dispatches round-robin across them.
 
-### 3.2 Bus (`forge-core/src/bus/`)
+### 3.2 Bus (`forge/src/bus.rs`)
 
 The internal async message router. Every invocation becomes an `Invocation` value:
 
@@ -90,7 +90,7 @@ struct Invocation {
 
 The bus does **not** know about HTTP routes, auth, or any business logic. It dispatches by opaque capability name only.
 
-### 3.3 Manager (`forge-core/src/lifecycle/manager.rs`)
+### 3.3 Manager (`forge/src/lifecycle/manager.rs`)
 
 The Manager owns the plugin lifecycle. Every plugin is always in one of these states:
 
@@ -117,7 +117,7 @@ The manager sets these environment variables for every plugin subprocess:
 | `FORGE_CALLBACK_ADDR` | Same as LISTEN_ADDR | Legacy compat — same value |
 | `FORGE_PLUGIN_NAME` | Plugin name from forge.toml | Identity |
 
-### 3.4 Config Loader (`forge-core/src/config/`)
+### 3.4 Config Loader (`forge/src/config.rs`)
 
 Loads and validates `forge.toml`. Precedence (highest wins):
 
@@ -126,7 +126,7 @@ Loads and validates `forge.toml`. Precedence (highest wins):
 3. The config file itself
 4. Built-in defaults
 
-### 3.5 Gateway (`forge-gateway/src/`)
+### 3.5 Gateway (`forge/src/gateway/`)
 
 Two listeners — HTTP (axum) and gRPC (tonic):
 

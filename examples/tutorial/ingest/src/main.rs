@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use forge_plugin_sdk_rust::{
+use forge::{
     Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
 };
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ struct IngestPlugin {
     data: Mutex<HashMap<String, String>>,
 }
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::async_trait]
 impl Plugin for IngestPlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![

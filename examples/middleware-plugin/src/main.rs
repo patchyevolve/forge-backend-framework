@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use forge_plugin_sdk_rust::{
+use forge::{
     Capability, InvokeContext, InvokeResult, KernelClient, Plugin, PluginError, PluginServer,
 };
 
@@ -14,7 +14,7 @@ const KERNEL_GRPC_ADDR: &str = "http://127.0.0.1:50051";
 
 struct MiddlewarePlugin;
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::async_trait]
 impl Plugin for MiddlewarePlugin {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("forge.example.echo.middleware", "1.0")]

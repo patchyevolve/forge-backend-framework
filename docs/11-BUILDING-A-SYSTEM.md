@@ -103,7 +103,7 @@ Edit `forge/plugins/greeter/src/main.rs`:
 
 ```rust
 use std::collections::HashMap;
-use forge_plugin_sdk_rust::{
+use forge::sdk::{
     Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
 };
 use serde::{Deserialize, Serialize};
@@ -116,7 +116,7 @@ struct GreetResponse { greeting: String }
 
 struct Greeter;
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::sdk::async_trait]
 impl Plugin for Greeter {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("app.greeter.hello", "1.0.0")]
@@ -207,7 +207,7 @@ forge new plugin analytics
 ```rust
 use std::collections::HashMap;
 use std::sync::Mutex;
-use forge_plugin_sdk_rust::{
+use forge::sdk::{
     Capability, InvokeContext, InvokeResult, KernelClient, Plugin, PluginError, PluginServer,
 };
 use serde::Serialize;
@@ -222,7 +222,7 @@ struct Analytics {
     visits: Mutex<u64>,
 }
 
-#[forge_plugin_sdk_rust::async_trait]
+#[forge::sdk::async_trait]
 impl Plugin for Analytics {
     fn capabilities(&self) -> Vec<Capability> {
         vec![Capability::new("app.analytics.report", "1.0.0")]
@@ -374,14 +374,7 @@ capability = "app.health@1.0"
 
 ## 6. Frontend Integration
 
-The `frontend/` directory is served statically by Forge at the root URL. Any file you place there is accessible at `http://localhost:9091/<filename>`.
-
-The sample `frontend/index.html` demonstrates:
-- Calling `POST /calc/:op` for the calculator
-- Calling `POST /login` for authentication
-- Calling `GET /alerts` with a Bearer token
-
-You can replace it with your own React, Vue, or Svelte app. Build it into `frontend/` and Forge serves it.
+The `frontend/` directory is served statically by Forge at the root URL. Any file you place there is accessible at `http://localhost:9091/<filename>`. Drop in your React, Vue, Svelte, or vanilla HTML app and Forge serves it.
 
 ---
 
@@ -508,7 +501,7 @@ sudo systemctl start forge
 - Set `cors_allowed_origins` to specific domains, not `*`
 - Configure `rate_limit_per_minute` to prevent abuse
 - Use `FORGE_LOG_LEVEL=warn` in production to reduce log noise
-- Set `RUST_LOG=forge_backend=info,forge_gateway=info,warn` for structured logging
+- Set `RUST_LOG=forge=info,warn` for structured logging
 
 ---
 
