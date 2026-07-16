@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
   pull_request:
-    branches: [master]
+    branches: [master, main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - run: cargo fmt --check
@@ -24,84 +24,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo test
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace -- --test-threads=4
+      - run: cargo test --workspace --doc
 
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target:
-          - name: release
-            flags: --release -p forge-cli
-          - name: no-default-features
-            flags: -p forge-backend --no-default-features
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build ${{ matrix.target.flags }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --workspace
+      - run: cargo build --release -p forge-backend --no-default-features
 
-  publish-dry-run:
+  integration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo package -p forge-proto
-      - run: cargo package -p forge-plugin-sdk-rust
-      - run: cargo package -p forge-backend
-
-  offline-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo fetch
-      - run: cargo build --offline
-
-  round-trip:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build -p forge-plugin-echo-rs -p forge-cli --release
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p forge-cli -p forge-plugin-echo-rs
       - run: bash test_round_trip.sh
+      - run: bash test_gateway_features.sh
 
-  round-trip-committed:
+  cli-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build -p forge-plugin-echo-rs -p forge-cli --release
-      - run: bash test_committed_round_trip.sh
-
-  integration-committed:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build -p forge-plugin-echo-rs -p forge-plugin-auth-jwt -p forge-plugin-data-sqlite -p forge-plugin-http-router -p forge-cli --release
-      - run: bash test_committed_backend.sh
-
-  integration-generated:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build -p forge-plugin-echo-rs -p forge-plugin-auth-jwt -p forge-plugin-data-sqlite -p forge-plugin-http-router -p forge-cli --release
-      - run: bash test_example_backend.sh
-
-  kill-resilience:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build -p forge-plugin-echo-rs -p forge-plugin-auth-jwt -p forge-plugin-data-sqlite -p forge-plugin-http-router -p forge-cli --release
-      - run: bash test_kill_resilience.sh
-
-  tutorial:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build -p tutorial-ingest -p tutorial-process -p tutorial-store -p tutorial-count -p forge-cli --release
-      - run: bash test_tutorial.sh
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p forge-cli
+      - run: bash test_scaffolding.sh

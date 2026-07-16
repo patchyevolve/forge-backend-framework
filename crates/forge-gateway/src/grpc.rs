@@ -1,7 +1,8 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::transport::{Identity, Server, ServerTlsConfig};
+use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
 use forge_backend::bus::{Bus, Invocation, InvocationError};
@@ -18,6 +19,9 @@ use forge_proto::{
 pub struct GrpcGateway {
     /// Socket address this gateway will bind to, e.g. `"0.0.0.0:50051"`.
     pub bind: String,
+    pub tls: bool,
+    pub tls_cert_path: Option<String>,
+    pub tls_key_path: Option<String>,
     bus: Bus,
     shutdown_rx: tokio::sync::watch::Receiver<bool>,
 }
@@ -25,9 +29,19 @@ pub struct GrpcGateway {
 impl GrpcGateway {
     /// Create a new gRPC gateway. `bind` is the socket address, `bus` is where invocations
     /// get dispatched, and `shutdown_rx` tells the server when to stop.
-    pub fn new(bind: String, bus: Bus, shutdown_rx: tokio::sync::watch::Receiver<bool>) -> Self {
+    pub fn new(
+        bind: String,
+        tls: bool,
+        tls_cert_path: Option<String>,
+        tls_key_path: Option<String>,
+        bus: Bus,
+        shutdown_rx: tokio::sync::watch::Receiver<bool>,
+    ) -> Self {
         Self {
             bind,
+            tls,
+            tls_cert_path,
+            tls_key_path,
             bus,
             shutdown_rx,
         }
@@ -43,9 +57,27 @@ impl GrpcGateway {
             kernel_grpc_addr,
         };
 
-        tracing::info!("gRPC gateway listening on {}", addr);
+        let mut builder = Server::builder();
+        if self.tls {
+            let cert_path = self
+                .tls_cert_path
+                .as_deref()
+                .unwrap_or("server.crt");
+            let key_path = self
+                .tls_key_path
+                .as_deref()
+                .unwrap_or("server.key");
+            let cert = std::fs::read(cert_path)?;
+            let key = std::fs::read(key_path)?;
+            let identity = Identity::from_pem(cert, key);
+            let tls = ServerTlsConfig::new().identity(identity);
+            builder = builder.tls_config(tls)?;
+            tracing::info!("gRPC gateway listening on {} (TLS: enabled)", addr);
+        } else {
+            tracing::info!("gRPC gateway listening on {} (TLS: disabled)", addr);
+        }
 
-        Server::builder()
+        builder
             .add_service(ForgePluginServer::new(svc))
             .serve_with_shutdown(addr, async {
                 let mut rx = self.shutdown_rx;

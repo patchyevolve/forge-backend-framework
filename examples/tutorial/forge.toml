@@ -9,3 +9,4 @@ level = "info"
 
 [plugins]
 manifest_dir = "plugins"
+watch = true

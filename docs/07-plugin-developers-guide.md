@@ -1,343 +1,423 @@
-# Forge — Plugin Developer's Guide
+# Plugin Developer's Guide
 
-**Document 7 of 7 — Step-by-Step**
-**Status:** Final
-**Depends on:** Document 4 (Plugin Protocol Specification) most directly; references Document 3 for *why* things work this way
-**Audience:** Anyone writing a plugin, in any language — this guide proves the "any language" claim with two worked examples (Rust and Python) plus patterns for everything else
+A Forge plugin is a standalone Rust binary that implements the `Plugin` trait from `forge-plugin-sdk-rust`. Forge spawns it as a managed subprocess, connects via gRPC, learns its capabilities, and routes invocations to it.
 
----
+## 1. How It Works
 
-## 0. The One Idea to Hold Onto
+```
+Forge Kernel                    Plugin Process
+     │                               │
+     │  Spawns subprocess             │
+     │  with FORGE_LISTEN_ADDR ───────┤
+     │  and FORGE_PLUGIN_NAME         │
+     │                               │
+     │  ───── gRPC Connect ────────→  │
+     │                               │
+     │  ←── Register (capabilities) ─ │
+     │                               │
+     │  ←── HealthCheck (every 5s) ── │
+     │                               │
+     │  ── Invoke (handle request) ──→│
+     │  ←── Response ─────────────────│
+     │                               │
+     │  ── Drain (shutdown signal) ──→│
+     │                               │
+```
 
-A Forge plugin is: a program that (1) implements four gRPC methods (`Register`, `Invoke`, `HealthCheck`, `Drain` — Plugin Protocol Spec §5), and (2) ships a manifest file telling Forge how to find it. That's the entire interface. Everything below is detail on top of that one sentence.
+Every plugin is a gRPC server that implements four RPCs:
 
----
+| RPC | Direction | Purpose |
+|---|---|---|
+| `Register` | Plugin → Kernel | Advertise capabilities at startup |
+| `Invoke` | Kernel → Plugin | Handle a capability invocation |
+| `HealthCheck` | Kernel → Plugin | Are you alive? (periodic) |
+| `Drain` | Kernel → Plugin | Graceful shutdown requested |
 
-## 1. Decide: Shape A or Shape B?
+The `forge-plugin-sdk-rust` crate wraps these into a simple Rust trait so you never touch gRPC directly.
 
-From Plugin Protocol Spec §2 — pick based on whether you want to manage your own process lifecycle:
+## 2. Quick Start: Your First Plugin
 
-- **Shape A (plugin-as-server)**: your plugin listens; Forge dials in. Pick this if your plugin is a long-running service you'd run/restart yourself anyway.
-- **Shape B (managed-subprocess)**: Forge spawns and restarts your plugin for you, your plugin dials *out* to a callback address Forge gives it via `FORGE_CALLBACK_ADDR`. Pick this for simple scripts where you'd rather not write process-supervision logic.
-
-The Python example below uses Shape B (simplest for a script). The Rust example uses Shape A (idiomatic for a standalone Rust service). Both are fully valid for any language — the choice is about supervision convenience, not language capability.
-
----
-
-## 2. Worked Example: A Rust Plugin (Shape A)
-
-We'll build a minimal capability, `forge.example.echo`, that just echoes its input back uppercased — small enough to see the whole protocol with nothing else competing for attention.
-
-### 2.1 Project setup
+### 2.1 Create the plugin
 
 ```bash
-cargo new forge-plugin-echo-rs
-cd forge-plugin-echo-rs
+cd your-project
+forge new plugin my-capability
 ```
 
-```toml
-# Cargo.toml
-[dependencies]
-forge-plugin-sdk = "1.0"   # the optional ergonomic wrapper, Build & Distribution Spec §2 —
-                            # generated stubs directly from forge-proto would work too, this
-                            # just saves boilerplate
-tokio = { version = "1", features = ["full"] }
+This creates `forge/plugins/my-capability/` with:
+
+```
+forge/plugins/my-capability/
+├── Cargo.toml
+├── src/
+│   └── main.rs
 ```
 
-### 2.2 The plugin code
+### 2.2 Implement the Plugin trait
+
+Edit `src/main.rs`:
 
 ```rust
-// src/main.rs
-use forge_plugin_sdk::{PluginServer, Capability, InvokeContext, InvokeResult, PluginError};
+use forge_plugin_sdk_rust::{
+    Capability, InvokeContext, InvokeResult, Plugin, PluginServer,
+};
+use forge_plugin_sdk_rust::PluginError;
 
-struct EchoPlugin;
+struct MyPlugin;
 
-#[forge_plugin_sdk::async_trait]
-impl forge_plugin_sdk::Plugin for EchoPlugin {
+#[forge_plugin_sdk_rust::async_trait]
+impl Plugin for MyPlugin {
     fn capabilities(&self) -> Vec<Capability> {
-        vec![Capability::new("forge.example.echo", "1.0.0")]
+        vec![
+            Capability::new("app.my_capability", "1.0.0"),
+        ]
     }
 
     async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
         match ctx.capability.as_str() {
-            "forge.example.echo" => {
-                // payload is raw bytes (Plugin Protocol Spec §5) — this example
-                // treats them as UTF-8 text directly, the common simple-plugin
-                // pattern noted in Plugin Protocol Spec §7.
-                let text = String::from_utf8_lossy(&ctx.payload);
-                Ok(text.to_uppercase().into_bytes())
+            "app.my_capability" => {
+                let input = String::from_utf8_lossy(&ctx.payload);
+                let result = format!("hello from my plugin: {input}");
+                Ok(result.into_bytes())
             }
-            other => Err(PluginError::not_found(format!("unknown capability: {other}"))),
+            other => Err(PluginError::not_found(format!("unknown: {other}"))),
         }
     }
 
-    async fn health_check(&self) -> bool {
-        true // this plugin has no external dependencies to check
-    }
+    async fn health_check(&self) -> bool { true }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // listens on the Unix socket address from this plugin's own manifest —
-    // the SDK reads FORGE_LISTEN_ADDR, which Forge's lifecycle module sets
-    // when spawning/connecting, matching transport.address in the manifest.
-    PluginServer::new(EchoPlugin)
-        .serve_shape_a()
-        .await
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "info".into()))
+        .init();
+    PluginServer::new(MyPlugin).serve_shape_a().await
 }
 ```
 
-This is the entire plugin. `forge_plugin_sdk::Plugin` is a thin trait wrapping the four-RPC contract from Plugin Protocol Spec §5 — under the hood, `serve_shape_a()` is doing exactly the `Register`/`Invoke`/`HealthCheck`/`Drain` dance, generated from `forge-proto`'s stubs, with `capabilities()`/`invoke()`/`health_check()` plugged into the right RPC handlers. You never see `tonic` directly unless you want to.
+### 2.3 Add a route in forge.toml
 
-### 2.3 The manifest
+Edit `forge/forge.toml` and add:
 
 ```toml
-# plugin.forge.toml
-forge_manifest_version = "1.0"
-
-[plugin]
-name = "echo-rs"
-version = "0.1.0"
-description = "Minimal echo plugin (Rust, Shape A)"
-protocol_version = "1.0"
-
-[transport]
-shape = "server"
-address = "unix:///run/forge/plugins/echo-rs.sock"
-
-[lifecycle]
-restart_policy = "on-failure"
-restart_backoff_initial_ms = 500
-restart_backoff_max_ms = 30000
-restart_max_attempts = 5
-health_check_interval_ms = 5000
-health_check_failure_threshold = 3
-drain_grace_period_ms = 5000
-
-[capabilities]
-provides = ["forge.example.echo@1.0"]
-requires = []
+[[gateway.routes]]
+method = "GET"
+path = "/my-capability"
+capability = "app.my_capability@1.0"
 ```
 
-### 2.4 Build, place, run
+### 2.4 Build and run
 
 ```bash
 cargo build --release
-mkdir -p ~/forge-demo/plugins/echo-rs
-cp target/release/forge-plugin-echo-rs ~/forge-demo/plugins/echo-rs/
-cp plugin.forge.toml ~/forge-demo/plugins/echo-rs/
-# but note: shape = "server" means YOU run this binary yourself, separately —
-# Forge only DIALS it, per Plugin Protocol Spec §2's Shape A definition.
-# Start it first:
-mkdir -p /run/forge/plugins   # or wherever you pointed `address` at
-./target/release/forge-plugin-echo-rs &
-# THEN start/reload forge — it'll find the manifest in manifest_dir and
-# connect to the already-listening socket.
+forge run
 ```
 
-### 2.5 Test it
+Then test:
 
 ```bash
-curl -s -X POST http://127.0.0.1:9091/v1/invoke \
+curl http://localhost:9091/my-capability
+```
+
+## 3. Plugin SDK Reference
+
+### 3.1 The Plugin Trait
+
+```rust
+#[async_trait]
+pub trait Plugin: Send + Sync + 'static {
+    /// REQUIRED: Advertise the capabilities this plugin provides.
+    fn capabilities(&self) -> Vec<Capability>;
+
+    /// REQUIRED: Handle an invocation for one of your capabilities.
+    async fn invoke(&self, ctx: InvokeContext) -> InvokeResult;
+
+    /// REQUIRED: Return false to signal the kernel you're unhealthy.
+    async fn health_check(&self) -> bool;
+
+    /// OPTIONAL: Called before the kernel force-kills you.
+    async fn on_drain(&self) {}
+}
+```
+
+### 3.2 Capability
+
+```rust
+pub struct Capability {
+    pub name: String,             // e.g. "app.my_action"
+    pub version: String,          // e.g. "1.0.0"
+    pub input_schema_ref: String, // JSON Schema URL (optional)
+    pub output_schema_ref: String, // JSON Schema URL (optional)
+}
+
+impl Capability {
+    pub fn new(name: impl Into<String>, version: impl Into<String>) -> Self;
+}
+```
+
+### 3.3 InvokeContext
+
+```rust
+pub struct InvokeContext {
+    pub request_id: String,                 // Unique ID for tracing
+    pub capability: String,                 // The capability being invoked
+    pub payload: Vec<u8>,                   // Opaque payload (typically JSON)
+    pub metadata: HashMap<String, String>,  // Key-value metadata from caller
+}
+```
+
+### 3.4 PluginError
+
+```rust
+pub struct PluginError {
+    pub code: String,                     // Machine-readable code, e.g. "NOT_FOUND"
+    pub message: String,                  // Human-readable description
+    pub details: HashMap<String, String>, // Structured details
+}
+
+impl PluginError {
+    pub fn not_found(message: impl Into<String>) -> Self;
+}
+```
+
+### 3.5 PluginServer
+
+```rust
+pub struct PluginServer<P: Plugin> { .. }
+
+impl<P: Plugin> PluginServer<P> {
+    /// Wrap a plugin ready for serving.
+    pub fn new(plugin: P) -> Self;
+
+    /// Start serving. Reads FORGE_LISTEN_ADDR from env.
+    pub async fn serve_shape_a(self) -> anyhow::Result<()>;
+}
+```
+
+The `serve_shape_a` method:
+1. Reads `FORGE_LISTEN_ADDR` env var (set by Forge when spawning)
+2. Supports TCP (`127.0.0.1:50051`) or Unix sockets (`unix:///tmp/plugin.sock`)
+3. Falls back to `unix:///tmp/forge-plugin.sock` if `FORGE_LISTEN_ADDR` is not set
+4. Starts the gRPC server and blocks forever
+
+### 3.6 KernelClient (calling other plugins)
+
+A plugin can call other plugins through the Forge kernel:
+
+```rust
+pub struct KernelClient { .. }
+
+impl KernelClient {
+    /// Connect to the kernel's gRPC gateway.
+    pub async fn connect(grpc_addr: &str) -> Result<Self, anyhow::Error>;
+
+    /// Invoke a capability through the kernel.
+    pub async fn invoke(
+        &self,
+        capability: &str,
+        payload: Vec<u8>,
+        metadata: HashMap<String, String>,
+        request_id: &str,
+    ) -> InvokeResult;
+}
+```
+
+Example — a plugin that calls an auth capability:
+
+```rust
+async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
+    // Connect to kernel's gRPC gateway
+    let kernel = KernelClient::connect("http://127.0.0.1:9090").await
+        .map_err(|e| PluginError {
+            code: "KERNEL_CONNECT_FAILED".into(),
+            message: e.to_string(),
+            details: HashMap::new(),
+        })?;
+
+    // Call another capability
+    let response = kernel.invoke(
+        "app.auth.verify@1.0",
+        serde_json::json!({"token": "..."}).to_string().into_bytes(),
+        ctx.metadata.clone(),
+        &ctx.request_id,
+    ).await?;
+
+    Ok(response)
+}
+```
+
+## 4. Handling Multiple Capabilities
+
+A plugin can register multiple capabilities. Dispatch in `invoke` by matching `ctx.capability`:
+
+```rust
+fn capabilities(&self) -> Vec<Capability> {
+    vec![
+        Capability::new("app.users.list", "1.0.0"),
+        Capability::new("app.users.create", "1.0.0"),
+    ]
+}
+
+async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
+    match ctx.capability.as_str() {
+        "app.users.list" => { /* list users */ }
+        "app.users.create" => { /* create user */ }
+        other => Err(PluginError::not_found(format!("unknown: {other}"))),
+    }
+}
+```
+
+## 5. Input/Output Conventions
+
+### Receiving JSON
+
+Plugins receive raw bytes in `ctx.payload`. When called through the HTTP gateway, JSON bodies are passed as-is:
+
+```rust
+let input: MyInput = serde_json::from_slice(&ctx.payload)
+    .map_err(|e| PluginError {
+        code: "INVALID_PAYLOAD".into(),
+        message: e.to_string(),
+        details: HashMap::new(),
+    })?;
+```
+
+### Returning JSON
+
+Return `Ok(bytes)` from `invoke`. The HTTP gateway wraps the bytes in a JSON envelope:
+
+```rust
+let output = serde_json::to_vec(&MyResponse { success: true }).unwrap();
+Ok(output)
+```
+
+The gateway returns:
+
+```json
+{"payload":{"success":true}}
+```
+
+### Returning Errors
+
+```rust
+return Err(PluginError {
+    code: "RATE_LIMITED".into(),
+    message: "too many requests".into(),
+    details: HashMap::new(),
+});
+```
+
+The gateway returns:
+
+```json
+{"error":{"code":"RATE_LIMITED","message":"too many requests"}}
+```
+
+## 6. Testing Your Plugin
+
+### With curl (through the running kernel)
+
+```bash
+curl http://localhost:9091/health
+curl -X POST http://localhost:9091/calc/add \
   -H "Content-Type: application/json" \
-  -d '{"capability": "forge.example.echo", "payload": "aGVsbG8="}'
-# payload "aGVsbG8=" is base64 for "hello" (HTTP/JSON transcoding, Plugin
-# Protocol Spec §7, base64-encodes raw bytes fields)
-# expect: {"requestId": "...", "payload": "SEVMTE8="}  ("HELLO" in base64)
+  -d '{"a":10,"b":3}'
 ```
 
-You've now exercised the full path from Architecture Spec §3's request walkthrough, end to end, with a plugin you wrote yourself.
-
----
-
-## 3. Worked Example: A Python Plugin (Shape B) — Zero Rust Required
-
-This is the literal scenario PRD §6 success criterion 2 demands. Same `forge.example.echo` capability, different language, different shape, to show both axes of variation.
-
-### 3.1 Setup
+### Through the invoke endpoint
 
 ```bash
-mkdir forge-plugin-echo-py && cd forge-plugin-echo-py
-python3 -m venv venv && source venv/bin/activate
-pip install grpcio grpcio-tools
+curl -X POST http://localhost:9091/v1/invoke \
+  -H "Content-Type: application/json" \
+  -d '{"capability":"app.my_capability","payload":"'$(echo -n '{"key":"value"}' | base64)'"}'
 ```
 
-### 3.2 Generate stubs from the canonical proto
+### Unit tests
 
-Take `forge_plugin_v1.proto` directly from the Forge repository (Plugin Protocol Spec §5 — this is literally the same file the Rust SDK is built from):
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-```bash
-python -m grpc_tools.protoc \
-  -I. --python_out=. --grpc_python_out=. \
-  forge_plugin_v1.proto
-# produces forge_plugin_v1_pb2.py and forge_plugin_v1_pb2_grpc.py
+    #[tokio::test]
+    async fn test_invoke() {
+        let plugin = MyPlugin;
+        let ctx = InvokeContext {
+            request_id: "test-1".into(),
+            capability: "app.my_capability".into(),
+            payload: b"test data".to_vec(),
+            metadata: HashMap::new(),
+        };
+        let result = plugin.invoke(ctx).await.unwrap();
+        assert!(String::from_utf8_lossy(&result).contains("test data"));
+    }
+
+    #[tokio::test]
+    async fn test_health() {
+        let plugin = MyPlugin;
+        assert!(plugin.health_check().await);
+    }
+}
 ```
 
-### 3.3 The plugin code
+## 7. Stateful Plugins
 
-```python
-# plugin.py
-import os
-import grpc
-import asyncio
-import forge_plugin_v1_pb2 as pb
-import forge_plugin_v1_pb2_grpc as pb_grpc
+Plugins can hold state. Use `Mutex`, `RwLock`, or `tokio::sync` types:
 
-class EchoPlugin(pb_grpc.ForgePluginServicer):
-    async def Register(self, request, context):
-        return pb.RegisterResponse(
-            plugin_protocol_version="1.0",
-            capabilities=[
-                pb.Capability(
-                    name="forge.example.echo",
-                    version="1.0.0",
-                    input_schema_ref="raw text",
-                    output_schema_ref="raw text",
-                )
-            ],
-        )
+```rust
+use std::sync::Mutex;
 
-    async def Invoke(self, request, context):
-        if request.capability == "forge.example.echo":
-            text = request.payload.decode("utf-8")
-            return pb.InvokeResponse(
-                request_id=request.request_id,
-                payload=text.upper().encode("utf-8"),
-            )
-        return pb.InvokeResponse(
-            request_id=request.request_id,
-            error=pb.PluginError(code="NOT_FOUND", message=f"unknown capability: {request.capability}"),
-        )
+struct MyPlugin {
+    counter: Mutex<u64>,
+}
 
-    async def HealthCheck(self, request, context):
-        return pb.HealthCheckResponse(healthy=True, detail="ok")
+impl Plugin for MyPlugin {
+    fn capabilities(&self) -> Vec<Capability> {
+        vec![Capability::new("app.counter", "1.0.0")]
+    }
 
-    async def Drain(self, request, context):
-        return pb.DrainResponse()
+    async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
+        let mut count = self.counter.lock().unwrap();
+        *count += 1;
+        Ok(format!("invocation #{count}").into_bytes())
+    }
+}
 
-async def main():
-    # Shape B: dial OUT to Forge's callback address, per Plugin Protocol
-    # Spec §2 — Forge sets this env var when spawning us as a managed subprocess.
-    callback_addr = os.environ["FORGE_CALLBACK_ADDR"]
-    server = grpc.aio.server()
-    pb_grpc.add_ForgePluginServicer_to_server(EchoPlugin(), server)
-    server.add_insecure_port(callback_addr)
-    await server.start()
-    await server.wait_for_termination()
-
-if __name__ == "__main__":
-    asyncio.run(main())
+// In main():
+let plugin = MyPlugin { counter: Mutex::new(0) };
+PluginServer::new(plugin).serve_shape_a().await
 ```
 
-Notice this Python code implements *exactly* the same four RPCs as the Rust example's SDK-wrapped version — `Register`, `Invoke`, `HealthCheck`, `Drain` — just without a convenience SDK hiding the gRPC plumbing. This is the proof, in code rather than in prose, that Document 4's protocol is genuinely language-neutral: nothing here is Rust-shaped.
+## 8. Health Checks
 
-### 3.4 The manifest
+Return `true` if the plugin is healthy. Check your dependencies:
 
-```toml
-forge_manifest_version = "1.0"
-
-[plugin]
-name = "echo-py"
-version = "0.1.0"
-description = "Minimal echo plugin (Python, Shape B)"
-protocol_version = "1.0"
-
-[transport]
-shape = "managed-subprocess"
-executable = "/path/to/forge-plugin-echo-py/venv/bin/python3"
-args = ["/path/to/forge-plugin-echo-py/plugin.py"]
-working_dir = "/path/to/forge-plugin-echo-py"
-
-[lifecycle]
-restart_policy = "on-failure"
-restart_backoff_initial_ms = 500
-restart_backoff_max_ms = 30000
-restart_max_attempts = 5
-health_check_interval_ms = 5000
-health_check_failure_threshold = 3
-drain_grace_period_ms = 5000
-
-[capabilities]
-provides = ["forge.example.echo@1.0"]
-requires = []
+```rust
+async fn health_check(&self) -> bool {
+    // Check database connection
+    sqlx::query("SELECT 1").fetch_one(&self.pool).await.is_ok()
+}
 ```
 
-Note this `forge.example.echo` capability name is identical to the Rust plugin's. **Don't run both manifests in the same Forge instance pointed at the same capability simultaneously** unless you specifically want to exercise the multi-provider resolution behavior from Architecture Spec §2.2 ("first-ready wins" by default) — for a clean test, use only one at a time, or rename one to `forge.example.echo.py` to run both side by side.
+If `health_check` returns `false` too many times (configurable threshold), Forge restarts the plugin.
 
-### 3.5 Place and run
+## 9. Graceful Shutdown (Drain)
 
-```bash
-mkdir -p ~/forge-demo/plugins/echo-py
-cp plugin.py ~/forge-demo/plugins/echo-py/
-cp plugin.forge.toml ~/forge-demo/plugins/echo-py/
-# Shape B means Forge spawns this for you — just (re)start `forge run`,
-# no separate manual launch step needed, unlike the Shape A example.
+Override `on_drain` to clean up resources before Forge kills the process:
+
+```rust
+async fn on_drain(&self) {
+    tracing::info!("shutting down gracefully...");
+    self.db.close().await;
+    self.queue.flush().await;
+}
 ```
 
-Test exactly the same way as §2.5 — the HTTP caller has no idea, and no need to know, which language answered.
+## 10. What Plugins Can't Do
 
----
-
-## 4. Patterns for Other Languages
-
-The same recipe generalizes directly — generate gRPC stubs from `forge_plugin_v1.proto` (every mainstream language's `protoc` plugin supports this), implement the four-method service, and either listen (Shape A) or dial the callback address (Shape B):
-
-- **Go**: `protoc-gen-go-grpc`, implement `ForgePluginServer` interface, `grpc.NewServer()`.
-- **C/C++**: `grpc_cpp_plugin`, implement the generated service base class.
-- **Node/TypeScript**: `@grpc/grpc-js` + `ts-proto` or `grpc-tools`.
-- **Anything with only an HTTP client (no gRPC library available)**: skip gRPC entirely and use the HTTP/JSON on-ramp (Plugin Protocol Spec §7) for *outbound* calls into Forge from your plugin's own logic — but note that being *invoked* as a plugin still requires implementing the `Invoke` RPC somehow, so a plugin that wants to receive traffic generally does need *some* gRPC server capability in its language, even a minimal one. Pure HTTP-only-no-gRPC plugins are a documented gap acknowledged here rather than glossed over: if your target language genuinely cannot run a gRPC server, the realistic option today is wrapping your logic in a thin Python or Go shim (or Rust, using the SDK) that does speak gRPC and shells out to / calls into your actual logic. A native non-gRPC inbound transport for plugins is credible future work, not a v-final guarantee.
-
----
-
-## 5. The Routing-Plugin Pattern (Two Valid Approaches)
-
-Per Architecture Spec §2.3, the kernel dispatches by opaque capability string only. When building something HTTP-router-shaped, you have two valid design choices — pick based on how many routes you have and whether you want Forge's registry to "see" each route individually:
-
-**Approach 1 — Coarse capability, internal sub-dispatch.** Register one capability, `forge.http.route`, and do your own path/method matching *inside* the plugin (e.g. using a Rust router crate like `matchit`, or Python's `re`, internally). Simple, scales to many routes without registry bloat. The kernel only ever sees one capability name.
-
-**Approach 2 — Fine-grained capabilities per route.** Register `forge.http.route.users.get`, `forge.http.route.users.post`, etc. — one capability per route. Lets `forge status` show every route individually and lets different routes even live in *different* plugins/processes. More registry entries, but more operator visibility and more deployment flexibility (you could scale just the hot route to its own plugin instance later).
-
-Neither is "more correct" — Architecture Spec §3's walkthrough uses Approach 2 purely because it's clearer to narrate step by step; production systems often start with Approach 1 for simplicity and split into Approach 2 only for routes that need independent scaling or ownership.
-
----
-
-## 6. Testing Your Plugin in Isolation (Before Forge Is Even Involved)
-
-Because the protocol is just gRPC, you can test your plugin with any gRPC client, without running Forge at all:
-
-```bash
-grpcurl -plaintext -unix /run/forge/plugins/echo-rs.sock \
-  forge.plugin.v1.ForgePlugin/HealthCheck
-# {"healthy": true}
-
-grpcurl -plaintext -unix /run/forge/plugins/echo-rs.sock \
-  -d '{"requestId":"test-1","capability":"forge.example.echo","payload":"aGVsbG8="}' \
-  forge.plugin.v1.ForgePlugin/Invoke
-```
-
-This decoupling — your plugin is a complete, independently testable gRPC service with no Forge-specific test harness required — is a direct payoff of Document 4 §2's "plugins are just gRPC clients/servers" design choice, and it's worth calling out explicitly in any portfolio writeup: **plugins are unit-testable without the kernel running at all.**
-
----
-
-## 7. Building the PRD §5.1 Example Backend (Putting It All Together)
-
-The full example backend referenced throughout this suite combines three plugins:
-
-1. `forge-plugin-http-router` (official) — registers fine-grained `forge.http.route.*` capabilities (Approach 2, §5 above).
-2. `forge-plugin-auth-jwt` (official) — provides `forge.auth.verify`, called *by* the router plugin per request (the plugin-to-plugin invocation pattern from Architecture Spec §3 step 5).
-3. `forge-plugin-data-sqlite` (official) — provides `forge.data.query`/`forge.data.write`, also called by the router plugin.
-
-None of these three plugins know about each other's existence in code — each only knows the *capability names* it needs to call, resolved at runtime through the registry (Architecture Spec §2.2). This is the architecture's central claim made concrete: you can swap `forge-plugin-data-sqlite` for a hypothetical `forge-plugin-data-postgres` by changing one manifest, with zero code changes anywhere else in the system, because the router plugin only ever asked for `forge.data.query`, never for "SQLite" specifically.
-
-Full manifests for all three official plugins ship in `plugins-official/*/plugin.forge.toml` (Build & Distribution Spec §2) as ready-to-copy starting points — this guide has now shown you everything needed to read and modify them yourself.
-
----
-
-## 8. Checklist Before You Call a Plugin "Done"
-
-- [ ] Manifest declares an accurate `forge_manifest_version` and `protocol_version`.
-- [ ] `capabilities.provides` in the manifest matches exactly what `Register`'s `RegisterResponse` actually returns at runtime (Plugin Protocol Spec §3's advisory-but-should-match rule).
-- [ ] `HealthCheck` reflects real health (if your plugin depends on a database connection, `healthy: false` when that connection is down — don't hardcode `true`).
-- [ ] You've tested the plugin standalone with `grpcurl` (§6) before ever pointing Forge at it.
-- [ ] You've decided Shape A vs Shape B deliberately (§1), not by accident.
-- [ ] Errors returned via `PluginError` have a meaningful `code`, not just a `message` — callers (including other plugins) may branch on `code`.
+- **Can't bind arbitrary ports** — Forge assigns the gRPC port. The plugin listens only on `FORGE_LISTEN_ADDR`.
+- **Can't outlive the kernel** — Forge kills the subprocess on shutdown.
+- **Can't bypass the gateway** — All external requests go through the HTTP/gRPC gateway.
+- **Can't see other plugins directly** — Plugins communicate through the kernel only, via `KernelClient`.

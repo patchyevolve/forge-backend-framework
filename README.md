@@ -1,45 +1,165 @@
 # Forge
 
-**A polyglot backend microkernel** — spawn, manage, and route requests between plugins written in any language that speaks gRPC.
+**A backend operating environment.**
 
-Forge is not an HTTP framework, not a service mesh, and not an event bus. It is a thin lifecycle kernel that connects plugin processes together through a capability-based message bus. Plugins register what they can do; the kernel routes invocations to the right plugin, regardless of language.
-
-## Architecture
+Forge is not a web framework, not a service mesh, and not an event bus. It is a single binary that orchestrates plugin processes, exposes an HTTP/gRPC gateway, and provides everything your backend needs except business logic.
 
 ```
-┌──────────────┐      ┌─────────────────────────────────────┐
-│   HTTP/gRPC   │ ──→  │            Forge Kernel              │
-│    Ingress    │      │  ┌─────────┐  ┌──────────────────┐  │
-│  (Gateway)    │      │  │ Registry │  │       Bus        │  │
-│               │      │  │ (what)   │  │ (resolve→deadline│  │
-│  curl, SDKs,  │      │  │          │  │  →dispatch→reply)│  │
-│  browsers     │      │  └─────────┘  └──────────────────┘  │
-└──────────────┘      │         │              │             │
-                      │    ┌────┴──────────────┘             │
-                      │    │  ┌──────────────┐               │
-                      │    └─→│   Manager    │               │
-                      │       │ (health,     │               │
-                      │       │  restart,    │               │
-                      │       │  lifecycle)  │               │
-                      │       └──────────────┘               │
-                      └─────────────────────────────────────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-              ┌──────────┐ ┌──────────┐ ┌──────────┐
-              │ echo-rs  │ │ auth-jwt │ │  Python  │
-              │  (Rust)  │ │  (Rust)  │ │  plugin  │
-              └──────────┘ └──────────┘ └──────────┘
+Internet
+   │
+   ▼
+Reverse Proxy (optional)
+   │
+   ▼
+┌────────────────────────────────────────────┐
+│                Forge                       │
+│  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
+│  │  Gateway  │  │  Plugin  │  │ Service │ │
+│  │  Routing  │  │  Manager │  │ Manager │ │
+│  │  Auth     │  │  Health  │  │   (DB,  │ │
+│  │  Rate Lim │  │  Restart │  │  Redis) │ │
+│  │  TLS      │  │  Discvry │  │         │ │
+│  │  Metrics  │  │  Draining│  │         │ │
+│  └──────────┘  └──────────┘  └─────────┘ │
+└────────────────────────────────────────────┘
+   │           │            │
+   ▼           ▼            ▼
+ auth     inventory     PostgreSQL
+plugin     plugin
 ```
 
 ## Quick start
 
 ```bash
-# download the binary
-curl -fsSL https://raw.githubusercontent.com/patchyevolve/forge-backend-framework/master/install.sh | sh
+# Install forge (pre-built binary)
+# curl -fsSL https://forge.dev/install.sh | sh
 
-# run with the example backend
-forge run --config examples/example-backend/forge.toml
+# Or build from source
+git clone https://github.com/patchyevolve/forge-backend-framework
+cd forge-core && cargo build --release
+./target/release/forge --help
+```
+
+Bootstrap a new project:
+
+```bash
+forge init my-project
+cd my-project
+cargo build --release
+forge run
+```
+
+Your backend is now live at `http://localhost:9091`:
+
+```bash
+curl http://localhost:9091/health
+# {"payload":{"status":"ok","uptime_seconds":3,"version":"0.1.0"}}
+
+curl -X POST http://localhost:9091/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"password"}'
+# {"payload":{"token":"forge-demo-token-admin","user":"admin"}}
+
+curl http://localhost:9091/alerts \
+  -H "Authorization: Bearer forge-demo-token-admin"
+# {"payload":{"alerts":[...]}}
+```
+
+## Project structure
+
+```
+my-project/
+├── frontend/        # Your UI (React, Vue, Svelte, …)
+├── forge/           # Backend runtime
+│   ├── forge.toml   # Configuration
+│   ├── plugins/     # Business logic plugins
+│   │   ├── auth/    # Login + token verification
+│   │   ├── health/  # Health + version info
+│   │   └── example/ # Demo alerts + echo
+│   ├── data/        # Persistent storage
+│   └── config/      # Instance-specific config
+├── Cargo.toml       # Workspace (Rust plugins)
+├── docker-compose.yml
+├── .gitignore
+└── README.md
+```
+
+## Adding a capability
+
+Create a plugin, add a route, rebuild:
+
+```bash
+forge new plugin inventory
+```
+
+Then add to `forge/forge.toml`:
+
+```toml
+[[gateway.routes]]
+method = "GET"
+path = "/products"
+capability = "inventory.list@1.0"
+```
+
+Rebuild and run:
+
+```bash
+cargo build --release
+forge run
+```
+
+## Plugin SDK
+
+| Language | Package | Status |
+|---|---|---|
+| Rust | `forge-plugin-sdk-rust` | Stable |
+| Python | Example (`plugin.py`) | Reference |
+
+A plugin is a self-contained process that implements the Forge plugin protocol (gRPC). It registers capabilities at startup and invokes them on demand.
+
+```rust
+impl Plugin for MyPlugin {
+    fn capabilities(&self) -> Vec<Capability> {
+        vec![Capability::new("my.action", "1.0.0")]
+    }
+
+    async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
+        // Business logic here
+        Ok(b"hello".to_vec())
+    }
+}
+```
+
+## Architecture
+
+Forge provides:
+
+- **HTTP/gRPC gateway** — route requests to plugins
+- **Declarative routing** — configure routes in `forge.toml`
+- **Auth hooks** — call a plugin to verify every request
+- **Rate limiting** — per-IP throttling
+- **TLS termination** — HTTPS for both HTTP and gRPC
+- **Plugin lifecycle** — spawn, health-check, restart, drain
+- **Crash recovery** — auto-restart with exponential backoff
+- **Managed subprocesses** — forge spawns and supervises plugins
+- **Round-robin dispatch** — load-balance across plugin instances
+- **Prometheus metrics** — `/metrics` endpoint
+- **CORS** — configurable origins
+- **File watching** — hot-reload plugin manifests
+
+## Deployment
+
+```bash
+# Docker
+docker compose up --build
+
+# systemd
+sudo cp systemd/forge.service /etc/systemd/system/
+sudo systemctl enable forge
+sudo systemctl start forge
+
+# Bare metal
+forge run
 ```
 
 ## Performance
@@ -52,35 +172,17 @@ forge run --config examples/example-backend/forge.toml
 | Plugin startup | 1 ms |
 | Restart after crash | 55 ms |
 
-Benchmarked on AMD Ryzen 7 7735HS, release mode, `tonic` feature enabled.
-
-## What it is not
-
-- **Not a web framework** — Forge does not route HTTP. Plugins do that.
-- **Not a service mesh** — no sidecars, no proxies, no mTLS between plugins.
-- **Not an event bus** — no pub/sub, no queues, no streaming (yet).
-
-## Languages
-
-| Plugin | SDK | Status |
-|---|---|---|
-| Rust | `forge-plugin-sdk-rust` | Stable |
-| Python | Example (`plugin.py`) | Reference |
+Benchmarked on AMD Ryzen 7 7735HS, release mode.
 
 ## Status
 
-v1.0.0 — API stable. See [CHANGELOG.md](CHANGELOG.md).
+v1.0.0 — API stable.
 
-## Specification
+## Documentation
 
-Nine design documents covering every design decision:
-
-- [Product Requirements](docs/01-PRD.md)
-- [Technical Requirements](docs/02-TRD.md)
-- [Architecture Specification](docs/03-architecture-spec.md)
-- [Plugin Protocol](docs/04-plugin-protocol-spec.md)
-- [Build & Distribution](docs/05-build-distribution-spec.md)
-- [Operator's Guide](docs/06-operators-guide.md)
-- [Plugin Developer's Guide](docs/07-plugin-developers-guide.md)
-- [Build Order Addendum](docs/08-BUILD-ORDER-ADDENDUM.md)
-- [Verification & Release](docs/09-VERIFICATION-AND-RELEASE.md)
+| Guide | File | Description |
+|---|---|---|
+| Architecture | [docs/03-architecture-spec.md](docs/03-architecture-spec.md) | How Forge works internally — kernel modules, request lifecycle, state machine |
+| Plugin Development | [docs/07-plugin-developers-guide.md](docs/07-plugin-developers-guide.md) | Writing plugins with the Rust SDK — Plugin trait, capabilities, KernelClient |
+| Usage Guide | [docs/10-USAGE-GUIDE.md](docs/10-USAGE-GUIDE.md) | CLI reference, forge.toml config, HTTP API, lifecycle, troubleshooting |
+| Building a System | [docs/11-BUILDING-A-SYSTEM.md](docs/11-BUILDING-A-SYSTEM.md) | Full tutorial: build a multi-plugin system from scratch with auth and deployment |

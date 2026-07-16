@@ -1,308 +1,293 @@
-# Forge — Operator's Guide
-
-**Document 6 of 7 — Step-by-Step**
-**Status:** Final
-**Depends on:** All prior documents (this is where they become actions)
-**Audience:** Anyone running Forge — including people who never need to read Rust
-
----
+# Forge Operator's Guide
 
 ## 0. Before You Start
 
-You need: a Linux machine (Fedora or Ubuntu; this guide uses Fedora command equivalents where they differ), `curl`, and — only if building from source instead of using a prebuilt binary — `rustup`. Nothing else.
+You need a Linux or macOS machine with `curl` and — if building from source — a Rust toolchain (`rustup`).
 
-If you just want to see Forge do something in five minutes, skip to §6 (Quickstart Demo) and come back to §1–5 afterward.
+If you want to see Forge do something in thirty seconds, skip to §3 (Quickstart Demo).
 
 ---
 
 ## 1. Install
 
-### 1.1 Prebuilt binary (recommended)
+### 1.1 Build from source (current recommendation)
 
 ```bash
-curl -fsSL https://example.invalid/install.sh | sh
+git clone https://github.com/patchyevolve/forge-backend-framework
+cd forge-core
+cargo build --release -p forge-cli
+sudo cp target/release/forge /usr/local/bin/
 ```
 
-This is the script described in Build & Distribution Spec §3.1. It downloads a static binary matching your OS/architecture, verifies its checksum, and places it at `~/.local/bin/forge`. Confirm:
+Verify:
 
 ```bash
 forge --version
-# forge 1.0.0 (protocol 1.0, manifest-schema 1.0)
+# forge 1.0.0
 ```
 
-If `forge: command not found`, your shell's `PATH` doesn't include `~/.local/bin`. Add this to your `~/.bashrc` (or `~/.zshrc`):
+### 1.2 Bootstrap a new project
 
 ```bash
-export PATH="$HOME/.local/bin:$PATH"
+forge init my-project
+cd my-project
+cargo build --release
+forge run
 ```
 
-then `source ~/.bashrc` (or open a new terminal).
-
-### 1.2 Build from source
-
-```bash
-git clone https://example.invalid/forge.git
-cd forge
-cargo build --release -p forge-cli
-sudo cp target/release/forge /usr/local/bin/forge
-```
-
-Use this path if you want to inspect/audit the source before running it (relevant if you're using Forge for the security-tool showcase) or if you're on a target triple without a prebuilt artifact.
-
-### 1.3 Minimal/embedded profile
-
-When gRPC gateway and plugin lifecycle management aren't needed — e.g. embedding Forge's dispatch core inside an existing application, or targeting a constrained environment — strip the tonic dependency:
-
-```bash
-cargo build -p forge-core --no-default-features
-```
-
-This disables:
-- **tonic** (gRPC client/server) — Bus dispatch falls back to in-process handlers only.
-- **Manager** (plugin lifecycle) — `start_all`, `restart_plugin`, `shutdown_all` are unavailable.
-- **tokio `full` features** — only `rt`, `macros`, `sync`, `time` are load-bearing.
-
-What remains: `Registry`, `Bus` (in-process dispatch via `register_handler`), config loader, lifecycle `PluginState` type, and the embedding `Kernel` API. See `examples/embedded-minimal/` for a complete 19-line example that uses only this profile. In `Cargo.toml`:
-
-```toml
-forge-core = { version = "1.0", default-features = false }
-```
-
-To add tonic back for individual features, enable the `tonic` feature explicitly:
-
-```toml
-forge-core = { version = "1.0", features = ["tonic"] }
-```
-
-The default enables `tonic` — use `default-features = false` only when you've confirmed you don't need gRPC or plugin management.
+That's it. Your backend is running at `http://localhost:9091`.
 
 ---
 
-## <a id="embedding"></a>2. Embedding Forge in an Application
+## 2. Project Layout
 
-Instead of running Forge as a standalone binary with plugins, you can embed its dispatch core directly into your Rust application. This is useful when you want in-process capability routing without the overhead of gRPC listeners, plugin subprocess management, or TLS.
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-forge-core = { version = "1.0", default-features = false }
-tokio = { version = "1", features = ["rt", "macros"] }
-bytes = "1"
+```
+my-project/
+├── frontend/          # Your UI (served statically by Forge)
+├── forge/
+│   ├── forge.toml     # Main configuration
+│   ├── plugins/       # Plugin source code (Rust crates)
+│   │   ├── auth/
+│   │   ├── health/
+│   │   ├── example/
+│   │   └── calculator/
+│   └── data/          # Persistent storage
+├── Cargo.toml         # Workspace root
+├── docker-compose.yml
+└── README.md
 ```
 
-Then register handlers and dispatch:
-
-```rust
-use forge_core::bus::{Bus, Invocation, InvocationError};
-use forge_core::registry::Registry;
-use forge_core::kernel::{Kernel, KernelConfig};
-
-let kernel = Kernel::new(KernelConfig::default()).await;
-kernel.bus().register_handler("ping", |inv| async move {
-    Ok(bytes::Bytes::from("pong"))
-}).await;
-let result = kernel.bus().dispatch(Invocation::simple("ping", "hello")).await;
-assert_eq!(result.unwrap(), &b"pong"[..]);
-```
-
-A complete working example is at `examples/embedded-minimal/` (19 lines). The embedding API uses only in-process dispatch (`register_handler` + `dispatch`) and does not start any gRPC listeners, health checks, or plugin subprocesses. Signal handling, config file parsing, and gateway TLS are the caller's responsibility.
+All plugins use `managed-subprocess` mode — Forge spawns them, health-checks them, restarts them on failure, and drains them on shutdown.
 
 ---
 
-## 3. Your First `forge.toml`
+## 3. Quickstart Demo
 
-Forge needs exactly one top-level config file (Architecture Spec §2.4) describing the kernel itself — not your plugins, just the kernel. Create one:
+After running `forge run`, open another terminal:
 
 ```bash
-mkdir -p ~/forge-demo && cd ~/forge-demo
-cat > forge.toml << 'EOF'
-forge_config_version = "1.0"
+# Health check
+curl http://localhost:9091/health
+# {"payload":{"status":"ok","uptime_seconds":3,"version":"0.1.0"}}
 
+# Login
+curl -X POST http://localhost:9091/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"password"}'
+# {"payload":{"token":"forge-demo-token-admin","user":"admin"}}
+
+# Protected alerts
+curl http://localhost:9091/alerts \
+  -H "Authorization: Bearer forge-demo-token-admin"
+# {"payload":{"alerts":[...
+
+# Calculator
+curl -X POST http://localhost:9091/calc/add \
+  -H "Content-Type: application/json" \
+  -d '{"a":10,"b":3}'
+# {"payload":{"result":13}}
+```
+
+---
+
+## 4. Configuration (forge.toml)
+
+The single configuration file lives at `forge/forge.toml` and defines everything.
+
+### Gateway
+
+```toml
 [gateway]
 grpc_bind = "127.0.0.1:9090"
 http_bind = "127.0.0.1:9091"
-tls = false   # fine for local dev; see §7 before exposing this beyond localhost
+cors_allowed_origins = "*"
+rate_limit_per_minute = 60
+max_body_size = 1048576
+```
 
+### Routes
+
+```toml
+[[gateway.routes]]
+method = "GET"
+path = "/health"
+capability = "app.health@1.0"
+
+[[gateway.routes]]
+method = "POST"
+path = "/login"
+capability = "app.auth.login@1.0"
+
+[[gateway.routes]]
+method = "GET"
+path = "/alerts"
+capability = "app.alerts@1.0"
+auth = "app.auth.verify@1.0"
+```
+
+The `auth` field specifies a capability to call before dispatching the route. If it returns `valid: false`, the request is rejected with 401.
+
+### Plugins
+
+```toml
+[[plugins]]
+name = "auth"
+path = "target/release/my-project-auth"
+capabilities = ["app.auth.login@1.0", "app.auth.verify@1.0"]
+```
+
+| Field | Default | Description |
+|---|---|---|
+| `name` | required | Unique plugin name |
+| `path` | required | Path to compiled binary |
+| `capabilities` | required | Capability list |
+| `args` | `[]` | Command-line arguments |
+| `env` | `{}` | Extra environment variables |
+| `restart_policy` | `"on-failure"` | `on-failure`, `always`, `never` |
+
+### Logging
+
+```toml
 [log]
 level = "info"
-
-[plugins]
-manifest_dir = "./plugins"   # forge scans this directory for plugin.forge.toml files
-EOF
-
-mkdir -p plugins
 ```
 
-Every field here maps directly to a `config` responsibility from Architecture Spec §2.4. You don't need to understand the kernel internals to set these — just know that `manifest_dir` is where you'll drop plugin folders next.
+### Full example
+
+See the generated `forge/forge.toml` from `forge init` for a complete working configuration.
 
 ---
 
-## 4. Adding Your First Plugin
+## 5. Operating Commands
 
-You need at least one plugin manifest before `forge run` has anything to serve. This guide uses the official SQLite data plugin (`forge-plugin-data-sqlite`, from the `plugins-official` collection, Build & Distribution Spec §2) as the example — full instructions for *writing your own* plugin are in Document 7; this section is purely about *installing* one someone else (including official Forge) already wrote.
+### forge status
 
-```bash
-mkdir -p plugins/data-sqlite
-cat > plugins/data-sqlite/plugin.forge.toml << 'EOF'
-forge_manifest_version = "1.0"
-
-[plugin]
-name = "data-sqlite"
-version = "0.3.1"
-description = "SQLite-backed persistence (official reference plugin)"
-protocol_version = "1.0"
-
-[transport]
-shape = "managed-subprocess"
-executable = "/usr/local/bin/forge-plugin-data-sqlite"
-args = []
-
-[lifecycle]
-restart_policy = "on-failure"
-restart_backoff_initial_ms = 500
-restart_backoff_max_ms = 30000
-restart_max_attempts = 5
-health_check_interval_ms = 5000
-health_check_failure_threshold = 3
-drain_grace_period_ms = 10000
-
-[capabilities]
-provides = ["forge.data.query@1.0", "forge.data.write@1.0"]
-requires = []
-
-[env]
-DATABASE_PATH = "./data/demo.db"
-EOF
-
-mkdir -p plugins/data-sqlite/data
-```
-
-This is a literal instance of the manifest template from Plugin Protocol Spec §3 — every field there maps one-to-one to a field here.
-
----
-
-## 5. Running Forge
-
-```bash
-forge run --config ./forge.toml
-```
-
-What you should see (paraphrased — exact log formatting may differ slightly by version):
-
-```
-[INFO] forge-cli 1.0.0 starting
-[INFO] config loaded from ./forge.toml (forge_config_version 1.0 — OK)
-[INFO] gateway: gRPC listening on 127.0.0.1:9090
-[INFO] gateway: HTTP listening on 127.0.0.1:9091 (TLS disabled — local dev only)
-[INFO] plugin discovered: data-sqlite (./plugins/data-sqlite/plugin.forge.toml)
-[INFO] plugin data-sqlite: CONNECTING (managed-subprocess, spawning /usr/local/bin/forge-plugin-data-sqlite)
-[INFO] plugin data-sqlite: HANDSHAKING
-[INFO] plugin data-sqlite: READY — capabilities registered: forge.data.query@1.0.0, forge.data.write@1.0.0
-[INFO] forge-cli ready — 1 plugin connected, 2 capabilities live
-```
-
-This sequence is the literal `DISCOVERED → CONNECTING → HANDSHAKING → READY` path from Architecture Spec §2.1, now visible as log lines instead of an abstract diagram. If a plugin gets stuck or fails, the log line tells you exactly which state it stalled in — that's the entire point of the state machine being explicit rather than a vague "connected/not connected" flag.
-
-Leave this running in its terminal; open a new terminal for the rest of this guide.
-
----
-
-## 6. Quickstart Demo (Five-Minute Version)
-
-If you only want to *see* something work right now, before setting up the full example backend:
-
-```bash
-curl -s http://127.0.0.1:9091/healthz
-# {"status":"ok"}
-
-curl -s http://127.0.0.1:9091/v1/status
-# shows the live capability registry — this is registry::list_capabilities()
-# from Architecture Spec §2.2, exposed over HTTP
-```
-
-This already demonstrates the gateway → registry path end-to-end with zero plugin-specific knowledge required.
-
----
-
-## 7. Operating Forge
-
-### 7.1 Checking status
+Show all plugins and capabilities:
 
 ```bash
 forge status
 ```
 
-Shows every discovered plugin, its current lifecycle state (§2.1's state machine, literally), and every live capability. This is your first diagnostic step for *any* problem — "what does `forge status` say" before anything else.
+Output:
+
+```
+=== Forge Kernel Status ===
+
+Plugins:
+  auth          [Ready]
+  health        [Ready]
+  example       [Ready]
+  calculator    [Ready]
+
+Capabilities:
+  app.auth.login@1.0          (provided by auth)
+  app.auth.verify@1.0         (provided by auth)
+  app.health@1.0              (provided by health)
+  ...
+```
+
+### forge status --graph
+
+Visualize the capability dependency graph from `forge.toml` — no running kernel needed:
 
 ```bash
 forge status --graph
 ```
 
-Renders the `provides`/`requires` advisory graph from every manifest (Plugin Protocol Spec §3) — useful for spotting a missing dependency before you even start the kernel.
+### forge plugin restart
 
-### 7.2 Restarting a stuck plugin
-
-```bash
-forge plugin restart data-sqlite
-```
-
-Forces a `DRAINING → STOPPED → DISCOVERED → ... → READY` cycle (Architecture Spec §6) for that one plugin — exactly the same path a hot-reload takes, just operator-triggered instead of file-watch-triggered.
-
-### 7.3 Hot-reloading after a manifest edit
-
-If `[plugins] watch = true` is set in `forge.toml`, editing a `plugin.forge.toml` file (e.g. bumping a restart policy) triggers the reload cycle automatically — no kernel restart needed. Watch the logs; you'll see the same `DRAINING`/`STOPPED`/`DISCOVERED` sequence as a manual restart.
-
-### 7.4 Stopping Forge
-
-```
-Ctrl+C in the terminal running `forge run`
-```
-
-or, if running as a systemd service (see §8):
+Restart a specific plugin without restarting the kernel:
 
 ```bash
-sudo systemctl stop forge
+forge plugin restart auth
 ```
 
-Either way, every connected plugin receives a `Drain` RPC (Plugin Protocol Spec §5) before the kernel exits, respecting each plugin's `drain_grace_period_ms`.
+Useful after rebuilding a plugin:
+
+```bash
+cargo build --release -p my-project-auth
+forge plugin restart auth
+```
 
 ---
 
-## 8. Security Hardening (Read This Before Exposing Forge Beyond `127.0.0.1`)
+## 6. Adding a New Plugin
 
-Per TRD §8, plaintext is the default for local development and Forge will say so loudly on every startup. Before binding to anything other than `127.0.0.1` or a private network:
+```bash
+# Scaffold
+forge new plugin my-feature
 
-1. **Enable TLS.** In `forge.toml`:
-   ```toml
-   [gateway]
-   grpc_bind = "0.0.0.0:9090"
-   http_bind = "0.0.0.0:9091"
-   tls = true
-   tls_cert_path = "/etc/forge/tls/cert.pem"
-   tls_key_path = "/etc/forge/tls/key.pem"
-   ```
-2. **Lock down Unix socket permissions.** If any plugin uses `transport.shape = "server"` with a Unix socket address, confirm the socket file is created `0600` (TRD §8's default) — verify with `ls -l /run/forge/plugins/`.
-3. **Remember plugins are trusted code** (TRD §8). Forge v-final does not sandbox plugins. Only point `manifest_dir` at plugins you've reviewed or built yourself. This is the single most important sentence in this entire guide for the security-showcase use case — say it out loud if you're demoing this to someone: *Forge's threat model assumes plugins are trusted; it is an orchestration boundary, not a sandbox.*
-4. **No required outbound network calls.** Confirm this yourself for your own peace of mind: `forge run` with no internet connectivity at all, after the binary is already on disk, starts and serves traffic identically (PRD §6 success criterion 7). If you ever see Forge itself making an unexpected outbound call, that's a bug — file it against whichever plugin actually made the call first, since the kernel has no code path that does this.
+# The plugin is added to the workspace and forge/plugins/my-feature/
+# is created with a template main.rs
+
+# Implement the plugin, then build
+cargo build --release
+
+# Add a route in forge.toml
+[[gateway.routes]]
+method = "GET"
+path = "/my-feature"
+capability = "app.my_feature@1.0"
+
+# Done! forge run picks up the new binary automatically on restart.
+```
 
 ---
 
-## 9. Running as a systemd Service
+## 7. Security Hardening
+
+Before exposing Forge beyond `127.0.0.1`:
+
+### 7.1 Enable TLS
+
+```toml
+[gateway]
+http_bind = "0.0.0.0:9091"
+grpc_bind = "0.0.0.0:9090"
+tls = true
+tls_cert_path = "/etc/forge/cert.pem"
+tls_key_path = "/etc/forge/key.pem"
+```
+
+### 7.2 Restrict CORS
+
+```toml
+[gateway]
+cors_allowed_origins = "https://myapp.example.com"
+```
+
+### 7.3 Set rate limits
+
+```toml
+[gateway]
+rate_limit_per_minute = 30
+```
+
+### 7.4 Plugins are trusted code
+
+Forge does not sandbox plugins. Only run plugins you've built or reviewed yourself.
+
+### 7.5 No outbound network calls
+
+Forge itself makes no outbound network calls after startup. If you see unexpected network activity, it's from a plugin — not the kernel.
+
+---
+
+## 8. Running as a systemd Service
 
 ```ini
 # /etc/systemd/system/forge.service
 [Unit]
-Description=Forge backend kernel
+Description=Forge Backend
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/forge run --config /etc/forge/forge.toml
+WorkingDirectory=/opt/my-project
+ExecStart=/usr/local/bin/forge run
 Restart=on-failure
 RestartSec=5
 User=forge
-Group=forge
 
 [Install]
 WantedBy=multi-user.target
@@ -310,51 +295,85 @@ WantedBy=multi-user.target
 
 ```bash
 sudo useradd --system --no-create-home forge
-sudo mkdir -p /etc/forge && sudo cp forge.toml /etc/forge/
 sudo systemctl daemon-reload
 sudo systemctl enable --now forge
-sudo systemctl status forge
-journalctl -u forge -f    # live logs
+journalctl -u forge -f
 ```
 
-Note this is **kernel** process supervision (systemd restarting the whole `forge` process if it dies) layered on top of, not a replacement for, the **plugin** lifecycle/restart policy (Architecture Spec §5) that Forge itself handles internally for individual plugins. The two operate at different levels and are both useful simultaneously.
+---
+
+## 9. Docker Deployment
+
+The generated `docker-compose.yml` builds everything:
+
+```bash
+docker compose up --build
+```
+
+Custom `Dockerfile` for production:
+
+```dockerfile
+FROM rust:1-slim AS builder
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=builder /app/target/release/ .
+COPY forge/ ./forge/
+EXPOSE 9091
+CMD ["forge", "run"]
+```
 
 ---
 
 ## 10. Upgrading
 
-1. Check the running version: `forge --version`.
-2. Check the target version's protocol/manifest-schema versions against your current plugins' declared `protocol_version` (Plugin Protocol Spec §3) — per TRD §7, a MAJOR protocol bump means your plugins may need rebuilding; a MINOR/PATCH bump is safe to assume compatible.
-3. Replace the binary (re-run the install script, or rebuild from source) — this never touches your `forge.toml` or plugin manifests, which live entirely outside the binary.
-4. Restart: `sudo systemctl restart forge` (or `Ctrl+C` + re-run, for the non-systemd path).
-5. Confirm with `forge status` — every plugin should walk back through to `READY` exactly as it did on first start, since upgrade-restart and first-start use the identical lifecycle path (Architecture Spec §2.1 — there is no separate "upgrade mode").
+1. Check the running version: `forge --version`
+2. Build the new version: `git pull && cargo build --release`
+3. Replace the binary: `sudo cp target/release/forge /usr/local/bin/`
+4. Restart: `sudo systemctl restart forge` or `Ctrl+C` + `forge run`
+5. Verify: `forge status` — all plugins should return to `Ready`
+
+Your `forge.toml` and plugin binaries are not touched during the upgrade.
 
 ---
 
 ## 11. Observability
 
-With the `metrics` build feature enabled (Build & Distribution Spec §5):
+### Metrics
 
 ```bash
-curl -s http://127.0.0.1:9091/metrics
+curl http://localhost:9091/metrics
 ```
 
-Exposes Prometheus-format counters/histograms for: invocations per capability, invocation latency (validating the TRD §6 budget — watch the `forge_invocation_duration_seconds` histogram's p99 against the documented <1ms-for-loopback target), plugin lifecycle transition counts, and health-check failure counts. Point any standard Prometheus/Grafana setup at this endpoint; nothing Forge-specific is required on the observability-tooling side.
+Prometheus-format counters for:
+- Invocations per capability
+- Invocation latency (p50/p95/p99)
+- Plugin lifecycle transitions
+- Health check failures
+
+### Log level
+
+```bash
+# Via config
+FORGE_LOG_LEVEL=debug forge run
+
+# Via env var
+RUST_LOG=forge_backend=debug,forge_gateway=info forge run
+```
 
 ---
 
-## 12. Troubleshooting Quick Reference
+## 12. Troubleshooting
 
-| Symptom | Likely cause | Where to look |
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| Plugin stuck in `CONNECTING` | executable path wrong, socket address unreachable, or plugin started *after* the kernel | `forge status`, check `transport` in that plugin's manifest; the kernel never retries initial-connection failures (Architecture Spec §5) — if the plugin wasn't reachable at kernel startup, restart the kernel after the plugin is running |
-| Plugin stuck in `HANDSHAKING` | protocol version mismatch | kernel log will show the explicit version-mismatch error (Plugin Protocol Spec §8) |
-| Plugin flaps `READY ↔ DEGRADED` | health check failing intermittently — slow plugin, or `health_check_failure_threshold` too aggressive for this plugin's normal latency | raise `health_check_interval_ms`/threshold in that plugin's manifest |
-| `forge run` exits immediately with a config error | `forge_config_version` or a `plugin.forge.toml`'s `forge_manifest_version` major version unrecognized by this kernel build | the startup error names the exact file and version mismatch — never a silent failure, per TRD §7 |
-| Request hangs past expected response time | check the capability's deadline configuration; bus enforces `deadline` per Architecture Spec §5, so a hang past that should resolve to `DeadlineExceeded`, not hang forever — if it genuinely hangs forever, that's a bug worth filing | `forge status` to see if the target plugin is `DEGRADED` |
-
----
-
-## 13. Forward Reference
-
-If the plugin you need doesn't exist yet, Document 7 is the rest of this story — it takes you from "I have Forge running" to "I wrote the plugin myself."
+| Plugin not in status | Binary not found at path | Check path in forge.toml, rebuild with `cargo build --release` |
+| Plugin keeps restarting | Health check returning false | Check plugin's `health_check()` implementation |
+| `Connection refused` | Plugin crashed or path wrong | Run `forge status`, check binary exists |
+| 401 on protected route | Missing/expired token | Login first, pass `Authorization: Bearer <token>` |
+| `no plugin registered for capability` | Capability name mismatch | Check the `name@version` in forge.toml matches the plugin's `capabilities()` |
+| `address already in use` | Port conflict | Check if another process is using port 9090/9091 |
+| Config not found | Wrong working directory | Run `forge run` from project root, or use `--config forge/forge.toml` |

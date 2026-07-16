@@ -26,6 +26,14 @@ struct ManagedPlugin {
     restart_attempts: u32,
     /// True when a restart is already queued — stops us from double-spawning
     restart_scheduled: bool,
+    /// How many times the file-watcher has retried connecting to this plugin.
+    /// Separate from restart_attempts (which counts post-registration crash cycles)
+    /// because "never came up" and "came up then crashed" are genuinely different
+    /// situations and conflating their counters would give wrong semantics.
+    /// Reset to 0 when the plugin reaches Ready.
+    watch_restart_attempts: u32,
+    /// Handle to the managed subprocess child, if spawned via ManagedSubprocess.
+    child: Option<tokio::process::Child>,
 }
 
 /// A "please restart this plugin" message sent through the restart channel.
@@ -141,6 +149,7 @@ impl Manager {
             }
             existing.health_failures = 0;
             existing.restart_scheduled = false;
+            existing.watch_restart_attempts = 0;
         } else {
             map.insert(
                 name.to_string(),
@@ -152,6 +161,8 @@ impl Manager {
                     discovered,
                     restart_attempts: 0,
                     restart_scheduled: false,
+                    watch_restart_attempts: 0,
+                    child: None,
                 },
             );
         }
@@ -195,11 +206,30 @@ impl Manager {
             let bus = self.bus.clone();
             let restart_tx = self.restart_tx.clone();
 
+            // Clone for the retry path: the primary copy is moved into start_one_with_tx.
+            let disc_for_retry = plugin.clone();
+
             handles.push(tokio::spawn(async move {
-                if let Err(e) =
-                    Self::start_one_with_tx(plugin, registry, bus, plugins, restart_tx).await
+                if let Err(e) = Self::start_one_with_tx(
+                    plugin,
+                    registry,
+                    bus,
+                    plugins.clone(),
+                    restart_tx.clone(),
+                )
+                .await
                 {
-                    tracing::error!("plugin {name}: failed to start — {e}");
+                    tracing::error!(
+                        "plugin {name}: failed to start — {e}; \
+                         scheduling one coordinator retry with exponential backoff"
+                    );
+                    // One-shot retry via the restart channel. The coordinator applies
+                    // exponential backoff. If this also fails, no further retries happen
+                    // from start_all — the watcher handles recurring retries separately
+                    // when watch=true.
+                    let _ = restart_tx.send(RestartRequest {
+                        discovered: disc_for_retry,
+                    });
                 } else {
                     tracing::info!("plugin {name}: READY — capabilities registered");
                 }
@@ -274,10 +304,14 @@ impl Manager {
             } => {
                 let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
                 let addr = listener.local_addr()?;
-                let callback_addr = format!("http://{}:{}", addr.ip(), addr.port());
+                let listen_addr = format!("{}:{}", addr.ip(), addr.port());
+                let callback_addr = format!("http://{listen_addr}");
+
+                drop(listener);
 
                 let mut cmd = tokio::process::Command::new(executable);
                 cmd.args(args)
+                    .env("FORGE_LISTEN_ADDR", &listen_addr)
                     .env("FORGE_CALLBACK_ADDR", &callback_addr)
                     .env("FORGE_PLUGIN_DIR", &discovered.directory);
                 let work_dir = working_dir.as_ref().map(|rel| {
@@ -290,9 +324,17 @@ impl Manager {
                 if let Some(dir) = &work_dir {
                     cmd.current_dir(dir);
                 }
-                cmd.spawn().map_err(|e| {
+                let child = cmd.spawn().map_err(|e| {
                     anyhow::anyhow!("failed to spawn plugin process {executable}: {e}")
                 })?;
+
+                // Store the child handle so we can kill it during shutdown
+                {
+                    let mut map = plugins.lock().await;
+                    if let Some(p) = map.get_mut(&plugin_name) {
+                        p.child = Some(child);
+                    }
+                }
 
                 tokio::time::sleep(Duration::from_millis(200)).await;
                 let ep = Endpoint::new(callback_addr)?
@@ -346,6 +388,14 @@ impl Manager {
         // All set — mark it READY
         Self::set_state(&plugins, &plugin_name, PluginState::Ready).await;
 
+        // Reset the watch-retry counter — the plugin is now reachable.
+        {
+            let mut map = plugins.lock().await;
+            if let Some(p) = map.get_mut(&plugin_name) {
+                p.watch_restart_attempts = 0;
+            }
+        }
+
         // Start a background health-check loop that also detects crashes. Restarts go through the
         // restart_tx channel instead of calling start_one_impl directly to avoid async type recursion.
         let health_interval = manifest.lifecycle.health_check_interval_ms;
@@ -386,7 +436,28 @@ impl Manager {
                         };
 
                         let mut hc_client = ForgePluginClient::new(ch.clone());
-                        match hc_client.health_check(HealthCheckRequest {}).await {
+                        let hc_result = tokio::time::timeout(
+                            Duration::from_secs(5),
+                            hc_client.health_check(HealthCheckRequest {}),
+                        )
+                        .await;
+                        let hc_result = match hc_result {
+                            Ok(r) => r,
+                            Err(_) => {
+                                // Timeout is treated as Unavailable (dead plugin)
+                                crash_and_schedule_restart(
+                                    &hc_name,
+                                    &hc_plugins,
+                                    &hc_registry,
+                                    &hc_bus,
+                                    &restart_policy,
+                                    &hc_restart_tx,
+                                )
+                                .await;
+                                break;
+                            }
+                        };
+                        match hc_result {
                             Ok(resp) => {
                                 if resp.into_inner().healthy {
                                     let mut map = hc_plugins.lock().await;
@@ -493,6 +564,15 @@ impl Manager {
             tokio::time::sleep(Duration::from_millis(grace)).await;
         }
 
+        // Kill the subprocess child if managed
+        if let Some(p) = map.get_mut(name) {
+            if let Some(mut child) = p.child.take() {
+                tracing::info!("plugin {name}: killing subprocess");
+                let _ = child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(3), child.wait()).await;
+            }
+        }
+
         if let Some(p) = map.get_mut(name) {
             if let Ok(()) = p
                 .state
@@ -551,6 +631,12 @@ impl Manager {
     /// Start a plugin if it's new or stuck in a non-Runnable state (Connecting, Stopped, or absent).
     /// If the plugin is already Ready/Degraded, drain and restart it instead.
     /// This is the method the file-watcher uses to handle both new manifests and manifest changes.
+    ///
+    /// **Safety:** this method assumes single-caller-at-a-time for a given plugin name.
+    /// The file-watcher's poll loop is sequential and is the only caller today.
+    /// Adding a second concurrent caller (e.g. a future CLI command) would create a
+    /// race: two `start_one_impl` calls for the same plugin could double-dial the
+    /// same gRPC address, both succeed, and leave duplicate connection state.
     pub async fn start_plugin_if_new(&self, discovered: DiscoveredPlugin) {
         let name = discovered.manifest.plugin.name.clone();
         let is_runnable = {
@@ -578,27 +664,125 @@ impl Manager {
         }
     }
 
-    /// Gracefully shut down everything — calls Drain RPC on each plugin and waits.
-    pub async fn shutdown_all(&self) {
-        let mut map = self.plugins.lock().await;
-        let names: Vec<String> = map.keys().cloned().collect();
+    /// Retry a plugin that's stuck in a non-Runnable state (Connecting/Stopped).
+    ///
+    /// Uses a per-plugin attempt counter (`watch_restart_attempts`) separate from
+    /// the crash-restart `restart_attempts` — "never came up" and "came up then
+    /// crashed" are different situations and conflating their counters would give
+    /// wrong backoff semantics.
+    ///
+    /// The cap (`restart_max_attempts`) is read from the plugin's own manifest,
+    /// same default as the crash-restart cap (5) for predictability.
+    ///
+    /// Once the cap is exhausted the plugin is transitioned to Stopped and a
+    /// clear terminal log message is emitted so an operator can grep for it.
+    /// Returns `true` if a retry was attempted, `false` if capped or absent.
+    pub async fn retry_plugin_watch(&self, name: &str) -> bool {
+        let disc = {
+            let mut map = self.plugins.lock().await;
+            let Some(p) = map.get_mut(name) else {
+                return false;
+            };
+            if p.state == PluginState::Ready || p.state == PluginState::Degraded {
+                return true;
+            }
+            let max = p
+                .discovered
+                .as_ref()
+                .map(|d| d.manifest.lifecycle.restart_max_attempts)
+                .unwrap_or(5);
+            p.watch_restart_attempts += 1;
+            let attempt = p.watch_restart_attempts;
+            if attempt >= max {
+                let addr = p
+                    .discovered
+                    .as_ref()
+                    .map(|d| match &d.manifest.transport {
+                        PluginTransport::Server { address } => address.clone(),
+                        PluginTransport::ManagedSubprocess { executable, .. } => {
+                            format!("subprocess:{executable}")
+                        }
+                    })
+                    .unwrap_or_else(|| "unknown".into());
+                p.state = p
+                    .state
+                    .transition(PluginState::Stopped)
+                    .unwrap_or(p.state);
+                tracing::error!(
+                    "plugin {name}: exhausted {max} watch-retry attempts — giving up. \
+                     The plugin at {addr} was never reachable. \
+                     Fix the address or start the process, then remove and re-add \
+                     the manifest so the watcher treats it as new."
+                );
+                return false;
+            }
+            tracing::info!("plugin {name}: watch-retry {attempt}/{max} — current state {:?}", p.state);
+            p.discovered.clone()
+        };
+        let Some(d) = disc else {
+            tracing::error!("plugin {name}: cannot retry — no cached manifest (BUG)");
+            return false;
+        };
+        if let Err(e) = Self::start_one_impl(
+            d,
+            self.registry.clone(),
+            self.bus.clone(),
+            self.plugins.clone(),
+            self.restart_tx.clone(),
+        )
+        .await
+        {
+            tracing::error!("plugin {name}: watch-retry failed — {e}");
+        }
+        true
+    }
 
-        for name in &names {
-            if let Some(p) = map.get_mut(name) {
-                if p.state == PluginState::Ready || p.state == PluginState::Degraded {
-                    if let Ok(()) = p
-                        .state
-                        .transition(PluginState::Draining)
-                        .map(|s| p.state = s)
-                    {
-                        tracing::info!("plugin {name}: shutdown — → DRAINING");
+    /// Gracefully shut down everything — calls Drain RPC on each plugin and waits.
+    /// Will force-kill managed subprocesses after the drain grace period.
+    pub async fn shutdown_all(&self) {
+        let names = {
+            let map = self.plugins.lock().await;
+            map.keys().cloned().collect::<Vec<_>>()
+        };
+
+        // Phase 1: mark all plugins as Draining
+        {
+            let mut map = self.plugins.lock().await;
+            for name in &names {
+                if let Some(p) = map.get_mut(name) {
+                    if p.state == PluginState::Ready || p.state == PluginState::Degraded {
+                        if let Ok(()) = p
+                            .state
+                            .transition(PluginState::Draining)
+                            .map(|s| p.state = s)
+                        {
+                            tracing::info!("plugin {name}: shutdown — → DRAINING");
+                        }
                     }
                 }
             }
         }
 
+        // Phase 2: drain RPC + wait for graceful shutdown
+        let mut map = self.plugins.lock().await;
         for name in &names {
             Self::drain_plugin_inner(&mut map, name, &self.registry, &self.bus).await;
+        }
+        drop(map);
+
+        // Phase 3: force-kill any remaining subprocess children
+        {
+            let mut map = self.plugins.lock().await;
+            for name in &names {
+                if let Some(p) = map.get_mut(name) {
+                    if let Some(mut child) = p.child.take() {
+                        tracing::info!("plugin {name}: force-killing subprocess");
+                        let _ = child.start_kill();
+                        // Give it a moment, then reap
+                        let _ = tokio::time::timeout(Duration::from_secs(3), child.wait()).await;
+                    }
+                }
+            }
         }
     }
 

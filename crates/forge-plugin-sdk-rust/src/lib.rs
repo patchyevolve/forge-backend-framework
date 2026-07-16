@@ -1,3 +1,52 @@
+//! # Forge Plugin SDK (Rust)
+//!
+//! Write Forge plugins in Rust. Implement the [`Plugin`] trait, wrap it with
+//! [`PluginServer`], and run.
+//!
+//! ## Quick start
+//!
+//! ```rust
+//! use forge_plugin_sdk_rust::{
+//!     Plugin, Capability, InvokeContext, InvokeResult,
+//! };
+//!
+//! struct MyPlugin;
+//!
+//! #[async_trait::async_trait]
+//! impl Plugin for MyPlugin {
+//!     fn capabilities(&self) -> Vec<Capability> {
+//!         vec![Capability::new("my:action", "1.0.0")]
+//!     }
+//!
+//!     async fn invoke(&self, ctx: InvokeContext) -> InvokeResult {
+//!         Ok(ctx.payload)  // echo
+//!     }
+//!
+//!     async fn health_check(&self) -> bool { true }
+//! }
+//! # fn main() {}
+//! ```
+//!
+//! ## Capabilities
+//!
+//! A capability is something your plugin can do — a named, versioned
+//! operation. Register them in [`Plugin::capabilities`] and handle them in
+//! [`Plugin::invoke`].
+//!
+//! ## Calling other plugins
+//!
+//! Use [`KernelClient`] to invoke capabilities on other plugins through
+//! the Forge kernel. The kernel's gRPC address is passed to your plugin
+//! in the `metadata` field of [`InvokeContext`].
+//!
+//! ## Plugin lifecycle
+//!
+//! 1. Forge spawns your binary as a subprocess
+//! 2. Forge calls `register()` to learn your capabilities
+//! 3. Forge calls `invoke()` to handle requests
+//! 4. Forge calls `health_check()` periodically
+//! 5. Forge calls `drain()` before shutting you down
+
 use std::collections::HashMap;
 
 use tonic::transport::{Channel, Endpoint, Server};
@@ -292,10 +341,15 @@ impl<P: Plugin> PluginServer<P> {
             plugin: self.plugin,
         };
 
+        // Strip optional URI scheme prefix so both "http://127.0.0.1:50051"
+        // and "127.0.0.1:50051" are accepted
+        let addr = addr
+            .strip_prefix("http://")
+            .or_else(|| addr.strip_prefix("https://"))
+            .unwrap_or(&addr);
+
         if let Some(unix_path) = addr.strip_prefix("unix://") {
-            // Unix socket path
             let path = std::path::PathBuf::from(unix_path);
-            // Clean up any leftover socket file from last time
             let _ = std::fs::remove_file(&path);
             let listener = tokio::net::UnixListener::bind(&path)?;
             let incoming = tokio_stream::wrappers::UnixListenerStream::new(listener);
@@ -304,7 +358,6 @@ impl<P: Plugin> PluginServer<P> {
                 .serve_with_incoming(incoming)
                 .await?;
         } else {
-            // Plain TCP socket
             Server::builder()
                 .add_service(ForgePluginServer::new(svc))
                 .serve(addr.parse()?)

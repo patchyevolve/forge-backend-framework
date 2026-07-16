@@ -23,6 +23,24 @@ pub struct ForgeConfig {
     pub plugins: PluginsConfig,
 }
 
+/// A declarative HTTP route that maps a method+path to a capability.
+/// Defined in `forge.toml` under `[[gateway.routes]]`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct RouteDef {
+    /// HTTP method (GET, POST, PUT, DELETE, PATCH).
+    pub method: String,
+    /// URL path pattern, e.g. `/api/items` or `/api/items/{id}`.
+    /// Path parameters use `{name}` or `:name` syntax.
+    pub path: String,
+    /// The capability to invoke when this route matches.
+    pub capability: String,
+    /// Optional auth capability to verify before dispatching
+    /// (e.g. `"auth.verify@1.0"`). If set, the gateway will call this
+    /// capability first and only dispatch if it succeeds.
+    #[serde(default)]
+    pub auth: Option<String>,
+}
+
 /// Gateway network settings — controls the gRPC and HTTP listeners.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GatewayConfig {
@@ -45,6 +63,27 @@ pub struct GatewayConfig {
     /// Path to the TLS private key file. Required when `tls = true`.
     #[serde(default)]
     pub tls_key_path: Option<String>,
+
+    /// CORS allowed origins (e.g. `["*"]` or `["https://example.com"]`).
+    /// Empty list means CORS is disabled. Default: empty (CORS disabled).
+    #[serde(default)]
+    pub cors_allowed_origins: Vec<String>,
+
+    /// Maximum number of HTTP requests per minute per IP.
+    /// `0` means no rate limit. Default: `0` (no limit).
+    #[serde(default)]
+    pub rate_limit_per_minute: u64,
+
+    /// Maximum allowed request body size in bytes.
+    /// `0` means no limit. Default: `0` (no limit).
+    #[serde(default)]
+    pub max_body_size: u64,
+
+    /// Declarative HTTP route definitions. Each route maps a method+path
+    /// to a capability invocation. The gateway automatically parses path
+    /// params, query params, and JSON bodies.
+    #[serde(default)]
+    pub routes: Vec<RouteDef>,
 }
 
 /// Logging configuration.
@@ -95,6 +134,10 @@ impl Default for GatewayConfig {
             tls: false,
             tls_cert_path: None,
             tls_key_path: None,
+            cors_allowed_origins: Vec::new(),
+            rate_limit_per_minute: 0,
+            max_body_size: 0,
+            routes: Vec::new(),
         }
     }
 }
@@ -512,6 +555,14 @@ fn apply_env_overrides(config: &mut ForgeConfig) {
     if let Ok(val) = std::env::var("FORGE_PLUGINS_WATCH") {
         config.plugins.watch = val.eq_ignore_ascii_case("true") || val == "1";
     }
+    if let Ok(val) = std::env::var("FORGE_GATEWAY_CORS_ALLOWED_ORIGINS") {
+        config.gateway.cors_allowed_origins = val.split(',').map(|s| s.trim().to_string()).collect();
+    }
+    if let Ok(val) = std::env::var("FORGE_GATEWAY_RATE_LIMIT_PER_MINUTE") {
+        if let Ok(n) = val.parse::<u64>() {
+            config.gateway.rate_limit_per_minute = n;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -555,6 +606,47 @@ watch = true
         assert!(config.gateway.tls);
         assert_eq!(config.log.level, "debug");
         assert!(config.plugins.watch);
+    }
+
+    #[test]
+    fn parse_forge_toml_with_routes() {
+        let toml_str = r#"
+forge_config_version = "1.0"
+
+[[gateway.routes]]
+method = "GET"
+path = "/api/items"
+capability = "item.list@1.0"
+
+[[gateway.routes]]
+method = "POST"
+path = "/api/items"
+capability = "item.create@1.0"
+auth = "auth.verify@1.0"
+
+[[gateway.routes]]
+method = "GET"
+path = "/api/items/{id}"
+capability = "item.get@1.0"
+"#;
+        let config: ForgeConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.gateway.routes.len(), 3);
+
+        let r0 = &config.gateway.routes[0];
+        assert_eq!(r0.method, "GET");
+        assert_eq!(r0.path, "/api/items");
+        assert_eq!(r0.capability, "item.list@1.0");
+        assert!(r0.auth.is_none());
+
+        let r1 = &config.gateway.routes[1];
+        assert_eq!(r1.method, "POST");
+        assert_eq!(r1.capability, "item.create@1.0");
+        assert_eq!(r1.auth.as_deref(), Some("auth.verify@1.0"));
+
+        let r2 = &config.gateway.routes[2];
+        assert_eq!(r2.method, "GET");
+        assert_eq!(r2.path, "/api/items/{id}");
+        assert_eq!(r2.capability, "item.get@1.0");
     }
 
     #[test]

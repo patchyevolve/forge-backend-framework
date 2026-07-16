@@ -1,4 +1,5 @@
 use dashmap::DashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// An opaque handle for a plugin instance — the bus uses this to route invocations to the right connection.
@@ -36,6 +37,7 @@ struct CapabilityEntry {
 pub struct Registry {
     inner: Arc<DashMap<String, Vec<CapabilityEntry>>>,
     resolution: ResolutionStrategy,
+    rr_counter: Arc<DashMap<String, AtomicUsize>>,
 }
 
 /// What to do when more than one plugin offers the same capability. First-ready-wins is the default.
@@ -62,6 +64,7 @@ impl Registry {
         Self {
             inner: Arc::new(DashMap::new()),
             resolution: ResolutionStrategy::default(),
+            rr_counter: Arc::new(DashMap::new()),
         }
     }
 
@@ -77,6 +80,7 @@ impl Registry {
         Self {
             inner: Arc::new(DashMap::new()),
             resolution: strategy,
+            rr_counter: Arc::new(DashMap::new()),
         }
     }
 
@@ -118,8 +122,12 @@ impl Registry {
         match self.resolution {
             ResolutionStrategy::FirstReadyWins => matching.first().map(|e| e.plugin_handle.clone()),
             ResolutionStrategy::RoundRobin => {
-                // For now, round-robin just picks the first match. A real impl would track an index per key.
-                matching.first().map(|e| e.plugin_handle.clone())
+                let counter = self
+                    .rr_counter
+                    .entry(capability.to_string())
+                    .or_insert(AtomicUsize::new(0));
+                let idx = counter.fetch_add(1, Ordering::Relaxed) % matching.len();
+                matching[idx].plugin_handle.clone().into()
             }
         }
     }
