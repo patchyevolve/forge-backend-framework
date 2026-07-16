@@ -1,6 +1,6 @@
 use dashmap::DashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// An opaque handle for a plugin instance — the bus uses this to route invocations to the right connection.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

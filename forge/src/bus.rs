@@ -17,7 +17,7 @@ use tonic::transport::Channel;
 #[cfg(feature = "gateway")]
 use crate::proto::forge_plugin_client::ForgePluginClient;
 #[cfg(feature = "gateway")]
-use crate::proto::{invoke_response, InvokeRequest};
+use crate::proto::{InvokeRequest, invoke_response};
 
 #[cfg(feature = "gateway")]
 use crate::registry::PluginHandle;

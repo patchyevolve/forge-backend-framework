@@ -110,7 +110,9 @@ impl Gateway {
             tracing::error!("HTTP gateway error: {e}");
         }
 
-        grpc_err.map(Err).unwrap_or(Ok(()))
+        grpc_err
+            .map(Err)
+            .unwrap_or(Ok(()))
             .or_else(|_| http_err.map(Err).unwrap_or(Ok(())))
     }
 

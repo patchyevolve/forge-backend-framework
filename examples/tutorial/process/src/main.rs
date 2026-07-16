@@ -125,7 +125,9 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:51053"); }
+        unsafe {
+            std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:51053");
+        }
     }
     PluginServer::new(ProcessPlugin).serve_shape_a().await
 }

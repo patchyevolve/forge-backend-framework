@@ -23,16 +23,16 @@ TMPDIR="$(mktemp -d)"
 echo "=== Test 1: forge init ==="
 cd "$TMPDIR"
 "$FORGE_BIN" init my-api 2>&1
-if [ -f "my-api/forge.toml" ] && [ -d "my-api/plugins" ]; then
-    echo "PASS: Project created with forge.toml and plugins/"
+if [ -f "my-api/forge/forge.toml" ] && [ -d "my-api/forge/plugins" ]; then
+    echo "PASS: Project created with forge/forge.toml and forge/plugins/"
 else
     echo "FAIL: Project structure incomplete"
-    ls -la my-api/
+    find my-api -type f | head -20
     exit 1
 fi
 
 # Verify forge.toml has correct defaults
-if grep -q "forge_config_version" "my-api/forge.toml"; then
+if grep -q "forge_config_version" "my-api/forge/forge.toml"; then
     echo "PASS: forge.toml has config version"
 else
     echo "FAIL: forge.toml missing config version"
@@ -43,32 +43,32 @@ fi
 echo "=== Test 2: forge new plugin ==="
 cd "$TMPDIR/my-api"
 "$FORGE_BIN" new plugin my-handler 2>&1
-if [ -f "plugins/my-handler/Cargo.toml" ] && \
-   [ -f "plugins/my-handler/src/main.rs" ] && \
-   [ -f "plugins/my-handler/plugin.forge.toml" ]; then
+if [ -f "forge/plugins/my-handler/Cargo.toml" ] && \
+   [ -f "forge/plugins/my-handler/src/main.rs" ] && \
+   [ -f "forge/plugins/my-handler/plugin.forge.toml" ]; then
     echo "PASS: Plugin created with all files"
 else
     echo "FAIL: Plugin structure incomplete"
-    ls -la plugins/my-handler/ 2>/dev/null || echo "  (directory not found)"
+    ls -la forge/plugins/my-handler/ 2>/dev/null || echo "  (directory not found)"
     exit 1
 fi
 
 # Verify plugin files
-if grep -q 'forge = "' "plugins/my-handler/Cargo.toml"; then
+if grep -q 'forge = "' "forge/plugins/my-handler/Cargo.toml"; then
     echo "PASS: Cargo.toml has forge dependency"
 else
     echo "FAIL: Cargo.toml missing forge dependency"
     exit 1
 fi
 
-if grep -q "impl Plugin for MyPlugin" "plugins/my-handler/src/main.rs"; then
+if grep -q "impl Plugin for MyPlugin" "forge/plugins/my-handler/src/main.rs"; then
     echo "PASS: main.rs has Plugin implementation"
 else
     echo "FAIL: main.rs missing Plugin implementation"
     exit 1
 fi
 
-if grep -q 'provides = \["my:action@1.0"\]' "plugins/my-handler/plugin.forge.toml"; then
+if grep -q 'provides = \["my:action@1.0"\]' "forge/plugins/my-handler/plugin.forge.toml"; then
     echo "PASS: plugin.forge.toml declares capabilities"
 else
     echo "FAIL: plugin.forge.toml missing capabilities"

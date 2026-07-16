@@ -9,7 +9,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 #[cfg(feature = "gateway")]
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::{Request, Response, Status, transport::Server};
 
 use forgecore_backend_framework_daemon::bus::{Bus, Invocation};
 use forgecore_backend_framework_daemon::config::{
@@ -22,7 +22,9 @@ use forgecore_backend_framework_daemon::lifecycle::{Manager, PluginState};
 use forgecore_backend_framework_daemon::registry::Registry;
 
 #[cfg(feature = "gateway")]
-use forgecore_backend_framework_daemon::proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
+use forgecore_backend_framework_daemon::proto::forge_plugin_server::{
+    ForgePlugin, ForgePluginServer,
+};
 #[cfg(feature = "gateway")]
 use forgecore_backend_framework_daemon::proto::{
     Capability, DrainRequest, DrainResponse, HealthCheckRequest, HealthCheckResponse,
@@ -319,7 +321,11 @@ impl ForgePlugin for EchoPlugin {
         let r = req.into_inner();
         Ok(Response::new(InvokeResponse {
             request_id: r.request_id,
-            result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
+            result: Some(
+                forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
+                    r.payload,
+                ),
+            ),
         }))
     }
     async fn health_check(
@@ -487,7 +493,11 @@ async fn plugin_startup_time() {
             let r = req.into_inner();
             Ok(Response::new(InvokeResponse {
                 request_id: r.request_id,
-                result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
+                result: Some(
+                    forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
+                        r.payload,
+                    ),
+                ),
             }))
         }
         async fn health_check(
@@ -678,8 +688,8 @@ async fn wait_for_state(
 #[tokio::test]
 async fn restart_latency() {
     use forgecore_backend_framework_daemon::lifecycle::PluginState;
-    use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
 
     struct CrashAfterInvoke {
         cap_name: &'static str,
@@ -710,7 +720,11 @@ async fn restart_latency() {
             let r = req.into_inner();
             Ok(Response::new(InvokeResponse {
                 request_id: r.request_id,
-                result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
+                result: Some(
+                    forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
+                        r.payload,
+                    ),
+                ),
             }))
         }
         async fn health_check(

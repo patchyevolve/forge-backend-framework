@@ -556,7 +556,8 @@ fn apply_env_overrides(config: &mut ForgeConfig) {
         config.plugins.watch = val.eq_ignore_ascii_case("true") || val == "1";
     }
     if let Ok(val) = std::env::var("FORGE_GATEWAY_CORS_ALLOWED_ORIGINS") {
-        config.gateway.cors_allowed_origins = val.split(',').map(|s| s.trim().to_string()).collect();
+        config.gateway.cors_allowed_origins =
+            val.split(',').map(|s| s.trim().to_string()).collect();
     }
     if let Ok(val) = std::env::var("FORGE_GATEWAY_RATE_LIMIT_PER_MINUTE") {
         if let Ok(n) = val.parse::<u64>() {
@@ -773,12 +774,12 @@ protocol_version = "1.0"
 
     #[test]
     fn env_overrides_do_not_apply_when_unset() {
-        // No FORGE_ vars set — config should keep whatever we assigned
-        let mut config = ForgeConfig::default();
-        config.gateway.grpc_bind = "127.0.0.1:9999".into();
-        apply_env_overrides(&mut config);
-        // No env override means the explicit value sticks
-        assert_eq!(config.gateway.grpc_bind, "127.0.0.1:9999");
+        temp_env::with_var("FORGE_GATEWAY_GRPC_BIND", None::<&str>, || {
+            let mut config = ForgeConfig::default();
+            config.gateway.grpc_bind = "127.0.0.1:9999".into();
+            apply_env_overrides(&mut config);
+            assert_eq!(config.gateway.grpc_bind, "127.0.0.1:9999");
+        });
     }
 
     #[test]

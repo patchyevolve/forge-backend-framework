@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use forge::{
-    Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
-};
+use forge::{Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -64,7 +62,9 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:51052"); }
+        unsafe {
+            std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:51052");
+        }
     }
     PluginServer::new(StorePlugin {
         records: Mutex::new(Vec::new()),

@@ -33,4 +33,7 @@ pub mod gateway;
 pub mod sdk;
 
 #[cfg(feature = "sdk")]
-pub use sdk::{async_trait, Capability, InvokeContext, InvokeResult, KernelClient, Plugin, PluginError, PluginServer};
+pub use sdk::{
+    Capability, InvokeContext, InvokeResult, KernelClient, Plugin, PluginError, PluginServer,
+    async_trait,
+};

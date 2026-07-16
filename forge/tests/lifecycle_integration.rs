@@ -1,10 +1,10 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::{Request, Response, Status, transport::Server};
 
 use forgecore_backend_framework_daemon::bus::{Bus, Invocation};
 use forgecore_backend_framework_daemon::config::{
@@ -14,7 +14,9 @@ use forgecore_backend_framework_daemon::config::{
 use forgecore_backend_framework_daemon::lifecycle::{Manager, PluginState};
 use forgecore_backend_framework_daemon::registry::Registry;
 
-use forgecore_backend_framework_daemon::proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
+use forgecore_backend_framework_daemon::proto::forge_plugin_server::{
+    ForgePlugin, ForgePluginServer,
+};
 use forgecore_backend_framework_daemon::proto::{
     Capability, DrainRequest, DrainResponse, HealthCheckRequest, HealthCheckResponse,
     InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
@@ -256,9 +258,11 @@ impl ForgePlugin for FakePlugin {
         let echoed = text.to_uppercase();
         Ok(Response::new(InvokeResponse {
             request_id: req.request_id,
-            result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
-                echoed.into_bytes(),
-            )),
+            result: Some(
+                forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
+                    echoed.into_bytes(),
+                ),
+            ),
         }))
     }
 

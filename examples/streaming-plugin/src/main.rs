@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use forge::{
-    Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
-};
+use forge::{Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer};
 use serde::{Deserialize, Serialize};
 
 // A plugin that paginates results instead of sending everything at once.

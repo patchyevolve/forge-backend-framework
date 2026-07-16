@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::mpsc;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 use tonic::transport::{Channel, Endpoint};
 use uuid::Uuid;
 
@@ -489,7 +489,8 @@ impl Manager {
                                             {
                                                 tracing::warn!(
                                                     "{hc_name}: health check {}/{} failed — READY → DEGRADED",
-                                                    p.health_failures, health_threshold
+                                                    p.health_failures,
+                                                    health_threshold
                                                 );
                                             }
                                         }
@@ -523,7 +524,8 @@ impl Manager {
                                             {
                                                 tracing::warn!(
                                                     "{hc_name}: health check {}/{} failed — READY → DEGRADED ({e})",
-                                                    p.health_failures, health_threshold
+                                                    p.health_failures,
+                                                    health_threshold
                                                 );
                                             }
                                         }
@@ -704,10 +706,7 @@ impl Manager {
                         }
                     })
                     .unwrap_or_else(|| "unknown".into());
-                p.state = p
-                    .state
-                    .transition(PluginState::Stopped)
-                    .unwrap_or(p.state);
+                p.state = p.state.transition(PluginState::Stopped).unwrap_or(p.state);
                 tracing::error!(
                     "plugin {name}: exhausted {max} watch-retry attempts — giving up. \
                      The plugin at {addr} was never reachable. \
@@ -716,7 +715,10 @@ impl Manager {
                 );
                 return false;
             }
-            tracing::info!("plugin {name}: watch-retry {attempt}/{max} — current state {:?}", p.state);
+            tracing::info!(
+                "plugin {name}: watch-retry {attempt}/{max} — current state {:?}",
+                p.state
+            );
             p.discovered.clone()
         };
         let Some(d) = disc else {
@@ -835,11 +837,7 @@ async fn crash_and_schedule_restart(
             if should {
                 p.restart_scheduled = true;
             }
-            if should {
-                p.discovered.clone()
-            } else {
-                None
-            }
+            if should { p.discovered.clone() } else { None }
         } else {
             None
         }

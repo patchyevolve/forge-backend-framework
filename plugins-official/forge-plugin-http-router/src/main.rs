@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use forge::{
-    Capability, InvokeContext, InvokeResult, KernelClient, PluginError, PluginServer,
-};
+use forge::{Capability, InvokeContext, InvokeResult, KernelClient, PluginError, PluginServer};
 
 struct HttpRouterPlugin;
 
@@ -205,7 +203,9 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50054"); }
+        unsafe {
+            std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50054");
+        }
     }
 
     PluginServer::new(HttpRouterPlugin).serve_shape_a().await

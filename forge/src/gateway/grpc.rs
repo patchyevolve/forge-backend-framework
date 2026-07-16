@@ -8,10 +8,9 @@ use uuid::Uuid;
 use crate::bus::{Bus, Invocation, InvocationError};
 
 use crate::proto::{
-    self as proto,
+    self as proto, DrainRequest, DrainResponse, HealthCheckRequest, HealthCheckResponse,
+    InvokeRequest, InvokeResponse, PluginError, RegisterRequest, RegisterResponse,
     forge_plugin_server::{ForgePlugin, ForgePluginServer},
-    DrainRequest, DrainResponse, HealthCheckRequest, HealthCheckResponse, InvokeRequest,
-    InvokeResponse, PluginError, RegisterRequest, RegisterResponse,
 };
 
 /// gRPC gateway — accepts InvokeRequests from outside and routes them through the bus.
@@ -59,14 +58,8 @@ impl GrpcGateway {
 
         let mut builder = Server::builder();
         if self.tls {
-            let cert_path = self
-                .tls_cert_path
-                .as_deref()
-                .unwrap_or("server.crt");
-            let key_path = self
-                .tls_key_path
-                .as_deref()
-                .unwrap_or("server.key");
+            let cert_path = self.tls_cert_path.as_deref().unwrap_or("server.crt");
+            let key_path = self.tls_key_path.as_deref().unwrap_or("server.key");
             let cert = std::fs::read(cert_path)?;
             let key = std::fs::read(key_path)?;
             let identity = Identity::from_pem(cert, key);

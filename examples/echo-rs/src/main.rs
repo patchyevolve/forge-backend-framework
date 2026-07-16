@@ -36,7 +36,9 @@ async fn main() -> anyhow::Result<()> {
     // Make sure this matches the address in plugin.forge.toml
     // so the kernel knows where to find us.
     if std::env::var("FORGE_LISTEN_ADDR").is_err() {
-        unsafe { std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50051"); }
+        unsafe {
+            std::env::set_var("FORGE_LISTEN_ADDR", "127.0.0.1:50051");
+        }
     }
 
     PluginServer::new(EchoPlugin).serve_shape_a().await

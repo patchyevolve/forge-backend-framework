@@ -1,8 +1,8 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::{Request, Response, Status, transport::Server};
 
 use forgecore_backend_framework_daemon::bus::{Bus, Invocation, InvocationError};
 use forgecore_backend_framework_daemon::config::{
@@ -12,7 +12,9 @@ use forgecore_backend_framework_daemon::config::{
 use forgecore_backend_framework_daemon::lifecycle::{Manager, PluginState};
 use forgecore_backend_framework_daemon::registry::Registry;
 
-use forgecore_backend_framework_daemon::proto::forge_plugin_server::{ForgePlugin, ForgePluginServer};
+use forgecore_backend_framework_daemon::proto::forge_plugin_server::{
+    ForgePlugin, ForgePluginServer,
+};
 use forgecore_backend_framework_daemon::proto::{
     Capability, DrainRequest, DrainResponse, HealthCheckRequest, HealthCheckResponse,
     InvokeRequest, InvokeResponse, RegisterRequest, RegisterResponse,
@@ -214,7 +216,11 @@ impl ForgePlugin for CrashAfterInvokePlugin {
         let r = req.into_inner();
         Ok(Response::new(InvokeResponse {
             request_id: r.request_id,
-            result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
+            result: Some(
+                forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
+                    r.payload,
+                ),
+            ),
         }))
     }
     async fn health_check(
@@ -262,7 +268,11 @@ impl ForgePlugin for UnhealthyPlugin {
         let r = req.into_inner();
         Ok(Response::new(InvokeResponse {
             request_id: r.request_id,
-            result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
+            result: Some(
+                forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
+                    r.payload,
+                ),
+            ),
         }))
     }
     async fn health_check(
@@ -340,7 +350,11 @@ impl ForgePlugin for HealthyPlugin {
         let r = req.into_inner();
         Ok(Response::new(InvokeResponse {
             request_id: r.request_id,
-            result: Some(forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(r.payload)),
+            result: Some(
+                forgecore_backend_framework_daemon::proto::invoke_response::Result::Payload(
+                    r.payload,
+                ),
+            ),
         }))
     }
     async fn health_check(

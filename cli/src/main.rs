@@ -9,9 +9,9 @@ use serde::Deserialize;
 
 use forge::bus::Bus;
 use forge::config::ConfigLoader;
+use forge::gateway::Gateway;
 use forge::lifecycle::{Manager, PluginState};
 use forge::registry::Registry;
-use forge::gateway::Gateway;
 
 #[derive(Deserialize)]
 struct StatusResponse {
@@ -364,8 +364,7 @@ async fn cmd_status_graph(config_path: PathBuf) -> anyhow::Result<()> {
                                 && provides_map.get(*other).is_some_and(|p| {
                                     p.iter().any(|c| {
                                         let name_only = c.split('@').next().unwrap_or(c);
-                                        let required_name =
-                                            cap.split('@').next().unwrap_or(cap);
+                                        let required_name = cap.split('@').next().unwrap_or(cap);
                                         name_only == required_name
                                     })
                                 })
@@ -763,7 +762,10 @@ drain_grace_period_ms = 5000
 provides = ["app.health@1.0"]
 requires = []
 "#;
-    std::fs::write(plugins_dir.join("health/plugin.forge.toml"), health_manifest)?;
+    std::fs::write(
+        plugins_dir.join("health/plugin.forge.toml"),
+        health_manifest,
+    )?;
 
     // ── Example plugin ──────────────────────────────────────────────────
     let example_cargo = r#"[package]
@@ -779,7 +781,10 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 "#;
-    std::fs::write(plugins_dir.join("example").join("Cargo.toml"), example_cargo)?;
+    std::fs::write(
+        plugins_dir.join("example").join("Cargo.toml"),
+        example_cargo,
+    )?;
 
     let example_main = r##"use forge::{Capability, InvokeResult, PluginError, PluginServer};
 
@@ -856,7 +861,10 @@ drain_grace_period_ms = 5000
 provides = ["app.alerts@1.0", "app.example@1.0"]
 requires = []
 "#;
-    std::fs::write(plugins_dir.join("example/plugin.forge.toml"), example_manifest)?;
+    std::fs::write(
+        plugins_dir.join("example/plugin.forge.toml"),
+        example_manifest,
+    )?;
 
     // ── docker-compose.yml ──────────────────────────────────────────────
     let docker_compose = r#"version: "3.8"
@@ -1161,7 +1169,10 @@ requires = []
     println!("Created plugin '{}'", plugin_dir.display());
     println!();
     println!("Next steps:");
-    println!("  Add members = [\"{}\"] to [workspace] in Cargo.toml", plugin_dir.display());
+    println!(
+        "  Add members = [\"{}\"] to [workspace] in Cargo.toml",
+        plugin_dir.display()
+    );
     println!("  cargo build --release  (from project root)");
     println!("  Add a route in forge/forge.toml");
     println!("  forge run");
@@ -1180,10 +1191,7 @@ fn cmd_install(name: &str, dir: Option<PathBuf>) -> anyhow::Result<()> {
     };
 
     if install_dir.exists() {
-        anyhow::bail!(
-            "directory '{}' already exists",
-            install_dir.display()
-        );
+        anyhow::bail!("directory '{}' already exists", install_dir.display());
     }
 
     // Currently supported plugins with their description
@@ -1224,7 +1232,8 @@ fn cmd_install(name: &str, dir: Option<PathBuf>) -> anyhow::Result<()> {
 
             // Create the plugin.forge.toml manifest based on the plugin type
             let manifest = match name {
-                "auth-jwt" => r#"forge_manifest_version = "1.0"
+                "auth-jwt" => {
+                    r#"forge_manifest_version = "1.0"
 
 [plugin]
 name = "auth-jwt"
@@ -1242,8 +1251,10 @@ restart_policy = "on-failure"
 [capabilities]
 provides = ["forge.auth.verify@1.0"]
 requires = []
-"#,
-                "data-sqlite" => r#"forge_manifest_version = "1.0"
+"#
+                }
+                "data-sqlite" => {
+                    r#"forge_manifest_version = "1.0"
 
 [plugin]
 name = "data-sqlite"
@@ -1261,8 +1272,10 @@ restart_policy = "on-failure"
 [capabilities]
 provides = ["forge.data.query@1.0", "forge.data.write@1.0"]
 requires = []
-"#,
-                "http-router" => r#"forge_manifest_version = "1.0"
+"#
+                }
+                "http-router" => {
+                    r#"forge_manifest_version = "1.0"
 
 [plugin]
 name = "http-router"
@@ -1280,8 +1293,10 @@ restart_policy = "on-failure"
 [capabilities]
 provides = ["forge.example.http-route@1.0"]
 requires = ["forge.auth.verify@1.0"]
-"#,
-                _ => r#"forge_manifest_version = "1.0"
+"#
+                }
+                _ => {
+                    r#"forge_manifest_version = "1.0"
 [plugin]
 name = "echo-rs"
 version = "0.1.0"
@@ -1295,12 +1310,17 @@ restart_policy = "on-failure"
 [capabilities]
 provides = ["forge.example.echo@1.0"]
 requires = []
-"#,
+"#
+                }
             };
 
             std::fs::write(install_dir.join("plugin.forge.toml"), manifest)?;
 
-            println!("Plugin manifest for '{}' created at {}", name, install_dir.display());
+            println!(
+                "Plugin manifest for '{}' created at {}",
+                name,
+                install_dir.display()
+            );
             println!("  Description: {description}");
             println!("  Repository: {repo}");
             println!();
@@ -1360,12 +1380,8 @@ fn http_get(host: &str, path: &str) -> Result<String, String> {
         Duration::from_secs(5),
     )
     .map_err(|e| format!("connect: {e}"))?;
-    stream
-        .set_read_timeout(Some(Duration::from_secs(10)))
-        .ok();
-    stream
-        .set_write_timeout(Some(Duration::from_secs(5)))
-        .ok();
+    stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
+    stream.set_write_timeout(Some(Duration::from_secs(5))).ok();
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
     stream
         .write_all(request.as_bytes())
@@ -1387,12 +1403,8 @@ fn http_post(host: &str, path: &str, body: &str) -> Result<String, String> {
         Duration::from_secs(5),
     )
     .map_err(|e| format!("connect: {e}"))?;
-    stream
-        .set_read_timeout(Some(Duration::from_secs(10)))
-        .ok();
-    stream
-        .set_write_timeout(Some(Duration::from_secs(5)))
-        .ok();
+    stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
+    stream.set_write_timeout(Some(Duration::from_secs(5))).ok();
     let request = format!(
         "POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
         body.len(),
@@ -1448,10 +1460,7 @@ mod tests {
         let name = dir.to_string_lossy().to_string();
         let result = cmd_init(&name);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("already exists"));
+        assert!(result.unwrap_err().to_string().contains("already exists"));
         let _ = fs::remove_dir_all(&dir);
     }
 

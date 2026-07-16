@@ -1,6 +1,4 @@
-use forge::{
-    Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer,
-};
+use forge::{Capability, InvokeContext, InvokeResult, Plugin, PluginError, PluginServer};
 
 struct UpperPlugin;
 

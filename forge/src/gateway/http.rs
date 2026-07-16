@@ -4,15 +4,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
+    Json, Router,
     extract::{ConnectInfo, Path, State},
     http::{HeaderMap, Method, StatusCode, Uri},
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
 };
 use prometheus::{
-    register_counter_vec_with_registry, register_histogram_vec_with_registry,
-    Registry as PromRegistry,
+    Registry as PromRegistry, register_counter_vec_with_registry,
+    register_histogram_vec_with_registry,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -99,17 +99,11 @@ impl HttpGateway {
             None
         };
 
-        let compiled_routes: Vec<CompiledRoute> = self
-            .routes
-            .iter()
-            .map(CompiledRoute::compile)
-            .collect();
+        let compiled_routes: Vec<CompiledRoute> =
+            self.routes.iter().map(CompiledRoute::compile).collect();
 
         if !compiled_routes.is_empty() {
-            tracing::info!(
-                "Declarative routes: {} registered",
-                compiled_routes.len()
-            );
+            tracing::info!("Declarative routes: {} registered", compiled_routes.len());
         }
 
         let metrics_registry = PromRegistry::new();
@@ -164,71 +158,83 @@ impl HttpGateway {
         // Uses `from_fn_with_state` so the closure can return a Response directly.
         if self.max_body_size > 0 {
             let max = self.max_body_size;
-            rb = rb.layer(axum::middleware::from_fn(move |req: axum::http::Request<axum::body::Body>, next: axum::middleware::Next| {
-                let max = max;
-                async move {
-                    if let Some(cl) = req.headers().get(axum::http::header::CONTENT_LENGTH) {
-                        if let Some(len) = cl.to_str().ok().and_then(|s| s.parse::<u64>().ok()) {
-                            if len > max {
-                                let mut r = axum::http::Response::new(axum::body::Body::empty());
-                                *r.status_mut() = axum::http::StatusCode::PAYLOAD_TOO_LARGE;
-                                return r;
+            rb = rb.layer(axum::middleware::from_fn(
+                move |req: axum::http::Request<axum::body::Body>, next: axum::middleware::Next| {
+                    let max = max;
+                    async move {
+                        if let Some(cl) = req.headers().get(axum::http::header::CONTENT_LENGTH) {
+                            if let Some(len) = cl.to_str().ok().and_then(|s| s.parse::<u64>().ok())
+                            {
+                                if len > max {
+                                    let mut r =
+                                        axum::http::Response::new(axum::body::Body::empty());
+                                    *r.status_mut() = axum::http::StatusCode::PAYLOAD_TOO_LARGE;
+                                    return r;
+                                }
                             }
                         }
+                        next.run(req).await
                     }
-                    next.run(req).await
-                }
-            }));
+                },
+            ));
             tracing::info!("Max body size: {} bytes", self.max_body_size);
         }
 
         if need_cors {
             let origins = cors_origins.clone();
-            rb = rb.layer(axum::middleware::from_fn(move |req: axum::http::Request<axum::body::Body>, next: axum::middleware::Next| {
-                let origins = origins.clone();
-                async move {
-                    let origin_val = req
-                        .headers()
-                        .get(axum::http::header::ORIGIN)
-                        .and_then(|v| v.to_str().ok())
-                        .unwrap_or("")
-                        .to_string();
-                    let is_preflight = req.method() == axum::http::Method::OPTIONS
-                        && !origin_val.is_empty();
-                    let is_wildcard = origins.iter().any(|o| o == "*");
-                    let allowed = is_wildcard || origins.iter().any(|o| o == &origin_val);
-                    if is_preflight {
-                        let mut resp = axum::http::Response::new(axum::body::Body::empty());
+            rb = rb.layer(axum::middleware::from_fn(
+                move |req: axum::http::Request<axum::body::Body>, next: axum::middleware::Next| {
+                    let origins = origins.clone();
+                    async move {
+                        let origin_val = req
+                            .headers()
+                            .get(axum::http::header::ORIGIN)
+                            .and_then(|v| v.to_str().ok())
+                            .unwrap_or("")
+                            .to_string();
+                        let is_preflight =
+                            req.method() == axum::http::Method::OPTIONS && !origin_val.is_empty();
+                        let is_wildcard = origins.iter().any(|o| o == "*");
+                        let allowed = is_wildcard || origins.iter().any(|o| o == &origin_val);
+                        if is_preflight {
+                            let mut resp = axum::http::Response::new(axum::body::Body::empty());
+                            if allowed {
+                                let origin_hdr = if is_wildcard {
+                                    "*".to_string()
+                                } else {
+                                    origin_val.clone()
+                                };
+                                resp.headers_mut().insert(
+                                    axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                                    origin_hdr.parse().unwrap(),
+                                );
+                                resp.headers_mut().insert(
+                                    axum::http::header::ACCESS_CONTROL_ALLOW_METHODS,
+                                    "GET, POST, PUT, DELETE, PATCH, OPTIONS".parse().unwrap(),
+                                );
+                                resp.headers_mut().insert(
+                                    axum::http::header::ACCESS_CONTROL_ALLOW_HEADERS,
+                                    "Content-Type, Authorization, X-Request-ID".parse().unwrap(),
+                                );
+                            }
+                            return resp;
+                        }
+                        let mut resp = next.run(req).await;
                         if allowed {
-                            let origin_hdr = if is_wildcard { "*".to_string() } else { origin_val.clone() };
+                            let origin_hdr = if is_wildcard {
+                                "*".to_string()
+                            } else {
+                                origin_val.clone()
+                            };
                             resp.headers_mut().insert(
                                 axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
                                 origin_hdr.parse().unwrap(),
                             );
-                            resp.headers_mut().insert(
-                                axum::http::header::ACCESS_CONTROL_ALLOW_METHODS,
-                                "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-                                    .parse().unwrap(),
-                            );
-                            resp.headers_mut().insert(
-                                axum::http::header::ACCESS_CONTROL_ALLOW_HEADERS,
-                                "Content-Type, Authorization, X-Request-ID"
-                                    .parse().unwrap(),
-                            );
                         }
-                        return resp;
+                        resp
                     }
-                    let mut resp = next.run(req).await;
-                    if allowed {
-                        let origin_hdr = if is_wildcard { "*".to_string() } else { origin_val.clone() };
-                        resp.headers_mut().insert(
-                            axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                            origin_hdr.parse().unwrap(),
-                        );
-                    }
-                    resp
-                }
-            }));
+                },
+            ));
             tracing::info!("CORS enabled for origins: {:?}", cors_origins);
         }
 
@@ -254,19 +260,17 @@ impl HttpGateway {
 
         // Use into_make_service_with_connect_info so handlers can extract
         // ConnectInfo<SocketAddr> for per-IP rate limiting.
-        let svc = router.clone().into_make_service_with_connect_info::<SocketAddr>();
+        let svc = router
+            .clone()
+            .into_make_service_with_connect_info::<SocketAddr>();
 
         if tls_enabled {
             serve_tls(
                 listener,
                 router,
                 self.shutdown_rx,
-                self._tls_cert_path
-                    .as_deref()
-                    .unwrap_or("server.crt"),
-                self._tls_key_path
-                    .as_deref()
-                    .unwrap_or("server.key"),
+                self._tls_cert_path.as_deref().unwrap_or("server.crt"),
+                self._tls_key_path.as_deref().unwrap_or("server.key"),
             )
             .await?;
         } else {
@@ -299,8 +303,7 @@ async fn serve_tls(
     key_path: &str,
 ) -> anyhow::Result<()> {
     let mut cert_file = std::io::BufReader::new(std::fs::File::open(cert_path)?);
-    let certs = rustls_pemfile::certs(&mut cert_file)
-        .collect::<Result<Vec<_>, _>>()?;
+    let certs = rustls_pemfile::certs(&mut cert_file).collect::<Result<Vec<_>, _>>()?;
     let mut key_file = std::io::BufReader::new(std::fs::File::open(key_path)?);
     let key = rustls_pemfile::pkcs8_private_keys(&mut key_file)
         .next()
@@ -402,9 +405,7 @@ fn compile_path(path: &str) -> Vec<PathSegment> {
         .split('/')
         .filter(|s| !s.is_empty())
         .map(|segment| {
-            if (segment.starts_with('{') && segment.ends_with('}'))
-                || segment.starts_with(':')
-            {
+            if (segment.starts_with('{') && segment.ends_with('}')) || segment.starts_with(':') {
                 let name = segment
                     .trim_start_matches('{')
                     .trim_start_matches(':')
@@ -479,7 +480,9 @@ struct RateLimitEntry {
 
 impl RateLimiter {
     fn new(max_per_minute: u64) -> Self {
-        let entries = Arc::new(tokio::sync::Mutex::new(HashMap::<IpAddr, RateLimitEntry>::new()));
+        let entries = Arc::new(tokio::sync::Mutex::new(
+            HashMap::<IpAddr, RateLimitEntry>::new(),
+        ));
         if max_per_minute > 0 {
             let entries = entries.clone();
             tokio::spawn(async move {
@@ -843,17 +846,13 @@ async fn declarative_handler(
             capability: auth_name,
             version_constraint: auth_constraint,
             payload: bytes::Bytes::from(auth_payload),
-            metadata: HashMap::from([(
-                "kernel_grpc_addr".into(),
-                state.kernel_grpc_addr.clone(),
-            )]),
+            metadata: HashMap::from([("kernel_grpc_addr".into(), state.kernel_grpc_addr.clone())]),
             deadline: auth_deadline,
         };
 
         match state.bus.dispatch(auth_invocation).await {
             Ok(payload) => {
-                let auth_result: Value =
-                    serde_json::from_slice(&payload).unwrap_or(Value::Null);
+                let auth_result: Value = serde_json::from_slice(&payload).unwrap_or(Value::Null);
                 let valid = auth_result
                     .get("valid")
                     .and_then(|v| v.as_bool())
@@ -941,10 +940,8 @@ async fn declarative_handler(
 
     match state.bus.dispatch(invocation).await {
         Ok(payload) => {
-            let response_payload: Value =
-                serde_json::from_slice(&payload).unwrap_or(Value::String(
-                    String::from_utf8_lossy(&payload).to_string(),
-                ));
+            let response_payload: Value = serde_json::from_slice(&payload)
+                .unwrap_or(Value::String(String::from_utf8_lossy(&payload).to_string()));
             (
                 StatusCode::OK,
                 Json(serde_json::json!({
