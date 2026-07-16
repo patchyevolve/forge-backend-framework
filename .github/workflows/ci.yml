@@ -36,7 +36,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --workspace
-      - run: cargo build --release -p forge-backend --no-default-features
+      - run: cargo build --release -p forgecore-backend-framework-daemon --no-default-features
 
   integration:
     runs-on: ubuntu-latest
