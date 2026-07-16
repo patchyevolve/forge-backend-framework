@@ -217,10 +217,10 @@ async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
         let mut last_mtimes: HashMap<String, std::time::SystemTime> = HashMap::new();
         for p in w_loader.discover_plugin_manifests(&w_manifest_dir) {
             let path = p.manifest_path.to_string_lossy().to_string();
-            if let Ok(meta) = std::fs::metadata(&p.manifest_path) {
-                if let Ok(t) = meta.modified() {
-                    last_mtimes.insert(path, t);
-                }
+            if let Ok(meta) = std::fs::metadata(&p.manifest_path)
+                && let Ok(t) = meta.modified()
+            {
+                last_mtimes.insert(path, t);
             }
         }
 
@@ -345,38 +345,37 @@ async fn cmd_status_graph(config_path: PathBuf) -> anyhow::Result<()> {
 
     for name in &all_plugins {
         println!("  {name}");
-        if let Some(provides) = provides_map.get(name) {
-            if !provides.is_empty() {
-                println!("    provides:");
-                for cap in provides {
-                    println!("      - {cap}");
-                }
+        if let Some(provides) = provides_map.get(name)
+            && !provides.is_empty()
+        {
+            println!("    provides:");
+            for cap in provides {
+                println!("      - {cap}");
             }
         }
-        if let Some(requires) = requires_map.get(name) {
-            if !requires.is_empty() {
-                println!("    requires:");
-                for cap in requires {
-                    let providers: Vec<&String> = all_plugins
-                        .iter()
-                        .filter(|other| {
-                            *other != name
-                                && provides_map.get(*other).is_some_and(|p| {
-                                    p.iter().any(|c| {
-                                        let name_only = c.split('@').next().unwrap_or(c);
-                                        let required_name = cap.split('@').next().unwrap_or(cap);
-                                        name_only == required_name
-                                    })
+        if let Some(requires) = requires_map.get(name)
+            && !requires.is_empty()
+        {
+            println!("    requires:");
+            for cap in requires {
+                let providers: Vec<&String> = all_plugins
+                    .iter()
+                    .filter(|other| {
+                        *other != name
+                            && provides_map.get(*other).is_some_and(|p| {
+                                p.iter().any(|c| {
+                                    let name_only = c.split('@').next().unwrap_or(c);
+                                    let required_name = cap.split('@').next().unwrap_or(cap);
+                                    name_only == required_name
                                 })
-                        })
-                        .collect();
-                    if providers.is_empty() {
-                        println!("      - {cap}  (unresolved — no provider found)");
-                    } else {
-                        let provider_names: Vec<&str> =
-                            providers.iter().map(|s| s.as_str()).collect();
-                        println!("      - {cap}  → {}", provider_names.join(", "));
-                    }
+                            })
+                    })
+                    .collect();
+                if providers.is_empty() {
+                    println!("      - {cap}  (unresolved — no provider found)");
+                } else {
+                    let provider_names: Vec<&str> = providers.iter().map(|s| s.as_str()).collect();
+                    println!("      - {cap}  → {}", provider_names.join(", "));
                 }
             }
         }

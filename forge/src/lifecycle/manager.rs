@@ -174,10 +174,10 @@ impl Manager {
         target: PluginState,
     ) {
         let mut map = plugins.lock().await;
-        if let Some(entry) = map.get_mut(name) {
-            if let Ok(()) = entry.state.transition(target).map(|s| entry.state = s) {
-                tracing::debug!("plugin {name}: state → {target:?}");
-            }
+        if let Some(entry) = map.get_mut(name)
+            && let Ok(()) = entry.state.transition(target).map(|s| entry.state = s)
+        {
+            tracing::debug!("plugin {name}: state → {target:?}");
         }
     }
 
@@ -269,12 +269,11 @@ impl Manager {
         // chain works. insert_or_update_plugin below will then push it to Connecting.
         {
             let mut map = plugins.lock().await;
-            if let Some(p) = map.get_mut(&plugin_name) {
-                if p.state == PluginState::Stopped {
-                    if let Ok(new) = p.state.transition(PluginState::Discovered) {
-                        p.state = new;
-                    }
-                }
+            if let Some(p) = map.get_mut(&plugin_name)
+                && p.state == PluginState::Stopped
+                && let Ok(new) = p.state.transition(PluginState::Discovered)
+            {
+                p.state = new;
             }
         }
 
@@ -463,16 +462,15 @@ impl Manager {
                                     let mut map = hc_plugins.lock().await;
                                     if let Some(p) = map.get_mut(&hc_name) {
                                         p.health_failures = 0;
-                                        if p.state == PluginState::Degraded {
-                                            if let Ok(()) = p
+                                        if p.state == PluginState::Degraded
+                                            && let Ok(()) = p
                                                 .state
                                                 .transition(PluginState::Ready)
                                                 .map(|s| p.state = s)
-                                            {
-                                                tracing::info!(
-                                                    "{hc_name}: recovered — DEGRADED → READY"
-                                                );
-                                            }
+                                        {
+                                            tracing::info!(
+                                                "{hc_name}: recovered — DEGRADED → READY"
+                                            );
                                         }
                                     }
                                 } else {
@@ -481,18 +479,16 @@ impl Manager {
                                         p.health_failures += 1;
                                         if p.health_failures >= health_threshold
                                             && p.state == PluginState::Ready
-                                        {
-                                            if let Ok(()) = p
+                                            && let Ok(()) = p
                                                 .state
                                                 .transition(PluginState::Degraded)
                                                 .map(|s| p.state = s)
-                                            {
-                                                tracing::warn!(
-                                                    "{hc_name}: health check {}/{} failed — READY → DEGRADED",
-                                                    p.health_failures,
-                                                    health_threshold
-                                                );
-                                            }
+                                        {
+                                            tracing::warn!(
+                                                "{hc_name}: health check {}/{} failed — READY → DEGRADED",
+                                                p.health_failures,
+                                                health_threshold
+                                            );
                                         }
                                     }
                                 }
@@ -516,18 +512,16 @@ impl Manager {
                                         p.health_failures += 1;
                                         if p.health_failures >= health_threshold
                                             && p.state == PluginState::Ready
-                                        {
-                                            if let Ok(()) = p
+                                            && let Ok(()) = p
                                                 .state
                                                 .transition(PluginState::Degraded)
                                                 .map(|s| p.state = s)
-                                            {
-                                                tracing::warn!(
-                                                    "{hc_name}: health check {}/{} failed — READY → DEGRADED ({e})",
-                                                    p.health_failures,
-                                                    health_threshold
-                                                );
-                                            }
+                                        {
+                                            tracing::warn!(
+                                                "{hc_name}: health check {}/{} failed — READY → DEGRADED ({e})",
+                                                p.health_failures,
+                                                health_threshold
+                                            );
                                         }
                                     }
                                 }
@@ -567,22 +561,21 @@ impl Manager {
         }
 
         // Kill the subprocess child if managed
-        if let Some(p) = map.get_mut(name) {
-            if let Some(mut child) = p.child.take() {
-                tracing::info!("plugin {name}: killing subprocess");
-                let _ = child.start_kill();
-                let _ = tokio::time::timeout(Duration::from_secs(3), child.wait()).await;
-            }
+        if let Some(p) = map.get_mut(name)
+            && let Some(mut child) = p.child.take()
+        {
+            tracing::info!("plugin {name}: killing subprocess");
+            let _ = child.start_kill();
+            let _ = tokio::time::timeout(Duration::from_secs(3), child.wait()).await;
         }
 
-        if let Some(p) = map.get_mut(name) {
-            if let Ok(()) = p
+        if let Some(p) = map.get_mut(name)
+            && let Ok(()) = p
                 .state
                 .transition(PluginState::Stopped)
                 .map(|s| p.state = s)
-            {
-                tracing::info!("plugin {name}: DRAINING → STOPPED");
-            }
+        {
+            tracing::info!("plugin {name}: DRAINING → STOPPED");
         }
 
         registry.deregister(&PluginHandle {
@@ -599,19 +592,19 @@ impl Manager {
     /// Restart a plugin: drain it, then flip back to Discovered so the lifecycle picks it up again.
     pub async fn restart_plugin(&self, name: &str) {
         let mut map = self.plugins.lock().await;
-        if let Some(p) = map.get(name) {
-            if p.state != PluginState::Ready && p.state != PluginState::Degraded {
-                return;
-            }
+        if let Some(p) = map.get(name)
+            && p.state != PluginState::Ready
+            && p.state != PluginState::Degraded
+        {
+            return;
         }
-        if let Some(p) = map.get_mut(name) {
-            if let Ok(()) = p
+        if let Some(p) = map.get_mut(name)
+            && let Ok(()) = p
                 .state
                 .transition(PluginState::Draining)
                 .map(|s| p.state = s)
-            {
-                tracing::info!("plugin {name}: operator restart — → DRAINING");
-            }
+        {
+            tracing::info!("plugin {name}: operator restart — → DRAINING");
         }
         drop(map);
 
@@ -751,16 +744,14 @@ impl Manager {
         {
             let mut map = self.plugins.lock().await;
             for name in &names {
-                if let Some(p) = map.get_mut(name) {
-                    if p.state == PluginState::Ready || p.state == PluginState::Degraded {
-                        if let Ok(()) = p
-                            .state
-                            .transition(PluginState::Draining)
-                            .map(|s| p.state = s)
-                        {
-                            tracing::info!("plugin {name}: shutdown — → DRAINING");
-                        }
-                    }
+                if let Some(p) = map.get_mut(name)
+                    && (p.state == PluginState::Ready || p.state == PluginState::Degraded)
+                    && let Ok(()) = p
+                        .state
+                        .transition(PluginState::Draining)
+                        .map(|s| p.state = s)
+                {
+                    tracing::info!("plugin {name}: shutdown — → DRAINING");
                 }
             }
         }
@@ -776,13 +767,13 @@ impl Manager {
         {
             let mut map = self.plugins.lock().await;
             for name in &names {
-                if let Some(p) = map.get_mut(name) {
-                    if let Some(mut child) = p.child.take() {
-                        tracing::info!("plugin {name}: force-killing subprocess");
-                        let _ = child.start_kill();
-                        // Give it a moment, then reap
-                        let _ = tokio::time::timeout(Duration::from_secs(3), child.wait()).await;
-                    }
+                if let Some(p) = map.get_mut(name)
+                    && let Some(mut child) = p.child.take()
+                {
+                    tracing::info!("plugin {name}: force-killing subprocess");
+                    let _ = child.start_kill();
+                    // Give it a moment, then reap
+                    let _ = tokio::time::timeout(Duration::from_secs(3), child.wait()).await;
                 }
             }
         }
@@ -816,14 +807,13 @@ async fn crash_and_schedule_restart(
     let discovered = {
         let mut map = plugins.lock().await;
         if let Some(p) = map.get_mut(name) {
-            if p.state == PluginState::Ready || p.state == PluginState::Degraded {
-                if let Ok(()) = p
+            if (p.state == PluginState::Ready || p.state == PluginState::Degraded)
+                && let Ok(()) = p
                     .state
                     .transition(PluginState::Stopped)
                     .map(|s| p.state = s)
-                {
-                    tracing::warn!("plugin {name}: connection lost — → STOPPED");
-                }
+            {
+                tracing::warn!("plugin {name}: connection lost — → STOPPED");
             }
             p.restart_attempts += 1;
             let should = !p.restart_scheduled

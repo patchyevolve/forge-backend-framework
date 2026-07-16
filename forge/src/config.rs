@@ -365,10 +365,10 @@ impl ConfigLoader {
     #[must_use]
     pub fn with_config_path(mut self, path: impl Into<PathBuf>) -> Self {
         let path = path.into();
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() {
-                self.config_dir = parent.to_path_buf();
-            }
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            self.config_dir = parent.to_path_buf();
         }
         self.config_path = Some(path);
         self
@@ -559,10 +559,10 @@ fn apply_env_overrides(config: &mut ForgeConfig) {
         config.gateway.cors_allowed_origins =
             val.split(',').map(|s| s.trim().to_string()).collect();
     }
-    if let Ok(val) = std::env::var("FORGE_GATEWAY_RATE_LIMIT_PER_MINUTE") {
-        if let Ok(n) = val.parse::<u64>() {
-            config.gateway.rate_limit_per_minute = n;
-        }
+    if let Ok(val) = std::env::var("FORGE_GATEWAY_RATE_LIMIT_PER_MINUTE")
+        && let Ok(n) = val.parse::<u64>()
+    {
+        config.gateway.rate_limit_per_minute = n;
     }
 }
 

@@ -162,16 +162,13 @@ impl HttpGateway {
                 move |req: axum::http::Request<axum::body::Body>, next: axum::middleware::Next| {
                     let max = max;
                     async move {
-                        if let Some(cl) = req.headers().get(axum::http::header::CONTENT_LENGTH) {
-                            if let Some(len) = cl.to_str().ok().and_then(|s| s.parse::<u64>().ok())
-                            {
-                                if len > max {
-                                    let mut r =
-                                        axum::http::Response::new(axum::body::Body::empty());
-                                    *r.status_mut() = axum::http::StatusCode::PAYLOAD_TOO_LARGE;
-                                    return r;
-                                }
-                            }
+                        if let Some(cl) = req.headers().get(axum::http::header::CONTENT_LENGTH)
+                            && let Some(len) = cl.to_str().ok().and_then(|s| s.parse::<u64>().ok())
+                            && len > max
+                        {
+                            let mut r = axum::http::Response::new(axum::body::Body::empty());
+                            *r.status_mut() = axum::http::StatusCode::PAYLOAD_TOO_LARGE;
+                            return r;
                         }
                         next.run(req).await
                     }
@@ -678,20 +675,20 @@ async fn invoke(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(req): Json<HttpInvokeRequest>,
 ) -> impl IntoResponse {
-    if let Some(limiter) = &state.rate_limiter {
-        if limiter.check(addr.ip()).await.is_err() {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(HttpInvokeResponse {
-                    request_id: None,
-                    payload: None,
-                    error: Some(HttpError {
-                        code: "RATE_LIMITED".into(),
-                        message: "too many requests — try again later".into(),
-                    }),
+    if let Some(limiter) = &state.rate_limiter
+        && limiter.check(addr.ip()).await.is_err()
+    {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(HttpInvokeResponse {
+                request_id: None,
+                payload: None,
+                error: Some(HttpError {
+                    code: "RATE_LIMITED".into(),
+                    message: "too many requests — try again later".into(),
                 }),
-            );
-        }
+            }),
+        );
     }
 
     let payload = match base64_decode(&req.payload) {
