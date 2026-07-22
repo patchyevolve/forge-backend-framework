@@ -243,6 +243,7 @@ impl HttpGateway {
         // Wrap with static file serving if a directory is configured.
         // Try ServeDir first; if the file doesn't exist, fall through to the API router.
         let router = if let Some(dir) = self.static_dir {
+            tracing::info!("Static directory: serving {dir:?} at /");
             let svc = tower_http::services::ServeDir::new(&dir)
                 .not_found_service(router.into_service());
             Router::new().fallback_service(svc)
