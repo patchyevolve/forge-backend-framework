@@ -443,6 +443,7 @@ serde_json = "1"
 grpc_bind = "127.0.0.1:9090"
 http_bind = "127.0.0.1:9091"
 tls = false
+static_dir = "frontend"
 cors_allowed_origins = ["*"]
 
 [log]

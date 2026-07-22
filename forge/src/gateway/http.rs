@@ -47,6 +47,7 @@ pub struct HttpGateway {
     manager: Manager,
     shutdown_rx: tokio::sync::watch::Receiver<bool>,
     kernel_grpc_addr: String,
+    static_dir: Option<String>,
     cors_allowed_origins: Vec<String>,
     rate_limit_per_minute: u64,
     max_body_size: u64,
@@ -67,6 +68,7 @@ impl HttpGateway {
         manager: Manager,
         shutdown_rx: tokio::sync::watch::Receiver<bool>,
         kernel_grpc_addr: String,
+        static_dir: Option<String>,
         cors_allowed_origins: Vec<String>,
         rate_limit_per_minute: u64,
         max_body_size: u64,
@@ -82,6 +84,7 @@ impl HttpGateway {
             manager,
             shutdown_rx,
             kernel_grpc_addr,
+            static_dir,
             cors_allowed_origins,
             rate_limit_per_minute,
             max_body_size,
@@ -236,6 +239,16 @@ impl HttpGateway {
 
         // Use a fresh binding so S2 is NOT constrained by the LHS type.
         let router = rb.with_state(app_state);
+
+        // Wrap with static file serving if a directory is configured.
+        // Try ServeDir first; if the file doesn't exist, fall through to the API router.
+        let router = if let Some(dir) = self.static_dir {
+            let svc = tower_http::services::ServeDir::new(&dir)
+                .not_found_service(router.into_service());
+            Router::new().fallback_service(svc)
+        } else {
+            router
+        };
 
         let tls_enabled = self._tls;
 

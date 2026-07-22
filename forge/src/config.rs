@@ -64,6 +64,12 @@ pub struct GatewayConfig {
     #[serde(default)]
     pub tls_key_path: Option<String>,
 
+    /// Directory to serve static files from (e.g. `"frontend"`).
+    /// When set, files in this directory are served at `/`.
+    /// Default: `None` (static file serving disabled).
+    #[serde(default)]
+    pub static_dir: Option<String>,
+
     /// CORS allowed origins (e.g. `["*"]` or `["https://example.com"]`).
     /// Empty list means CORS is disabled. Default: empty (CORS disabled).
     #[serde(default)]
@@ -134,6 +140,7 @@ impl Default for GatewayConfig {
             tls: false,
             tls_cert_path: None,
             tls_key_path: None,
+            static_dir: None,
             cors_allowed_origins: Vec::new(),
             rate_limit_per_minute: 0,
             max_body_size: 0,

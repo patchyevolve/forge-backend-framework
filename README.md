@@ -46,10 +46,11 @@ Bootstrap a new project:
 forge init my-project
 cd my-project
 cargo build --release
-forge run            # make sure forge is on your PATH
+forge run                   # make sure forge is on your PATH
 ```
 
-Your backend is now live at `http://localhost:9091`:
+Your backend is now live at `http://localhost:9091`.
+If you have a frontend in `frontend/`, it's served at `http://localhost:9091` too (`static_dir = "frontend"` in forge.toml):
 
 ```bash
 curl http://localhost:9091/healthz

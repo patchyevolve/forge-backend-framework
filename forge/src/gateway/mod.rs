@@ -79,6 +79,7 @@ impl Gateway {
             manager,
             shutdown_rx,
             kernel_grpc_addr,
+            config.gateway.static_dir.clone(),
             config.gateway.cors_allowed_origins,
             config.gateway.rate_limit_per_minute,
             config.gateway.max_body_size,

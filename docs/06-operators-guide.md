@@ -100,6 +100,7 @@ The single configuration file lives at `forge/forge.toml` and defines everything
 [gateway]
 grpc_bind = "127.0.0.1:9090"
 http_bind = "127.0.0.1:9091"
+static_dir = "frontend"
 cors_allowed_origins = "*"
 rate_limit_per_minute = 60
 max_body_size = 1048576
