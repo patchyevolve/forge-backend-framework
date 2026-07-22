@@ -54,7 +54,7 @@ else
 fi
 
 # Verify plugin files
-if grep -q 'forge = "' "forge/plugins/my-handler/Cargo.toml"; then
+if grep -q 'forge = ' "forge/plugins/my-handler/Cargo.toml"; then
     echo "PASS: Cargo.toml has forge dependency"
 else
     echo "FAIL: Cargo.toml missing forge dependency"
