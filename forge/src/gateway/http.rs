@@ -156,6 +156,11 @@ impl HttpGateway {
             .route("/metrics", get(metrics_handler))
             .fallback(declarative_handler);
 
+        // When a static directory is configured, redirect / to /static/.
+        if self.static_dir.is_some() {
+            rb = rb.route("/", get(root_redirect));
+        }
+
         // Body size middleware (checks Content-Length before reading body).
         // Uses `from_fn_with_state` so the closure can return a Response directly.
         if self.max_body_size > 0 {
@@ -599,6 +604,10 @@ fn invocation_error_pair(err: &InvocationError) -> (String, String) {
 }
 
 // Built-in endpoint handlers
+
+async fn root_redirect() -> axum::response::Redirect {
+    axum::response::Redirect::temporary("/static/")
+}
 
 async fn metrics_handler(State(state): State<AppState>) -> axum::response::Response {
     use prometheus::Encoder;
