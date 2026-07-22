@@ -238,18 +238,14 @@ impl HttpGateway {
         }
 
         // Use a fresh binding so S2 is NOT constrained by the LHS type.
-        let router = rb.with_state(app_state);
+        let mut router = rb.with_state(app_state);
 
-        // Wrap with static file serving if a directory is configured.
-        // Try ServeDir first; if the file doesn't exist, fall through to the API router.
-        let router = if let Some(dir) = self.static_dir {
-            tracing::info!("Static directory: serving {dir:?} at /");
-            let svc =
-                tower_http::services::ServeDir::new(&dir).not_found_service(router.into_service());
-            Router::new().fallback_service(svc)
-        } else {
-            router
-        };
+        // If a static directory is configured, mount it so API routes take priority
+        // and ServeDir handles only what the API router doesn't.
+        if let Some(dir) = self.static_dir {
+            tracing::info!("Static directory: serving {dir:?} at /static/");
+            router = router.nest_service("/static", tower_http::services::ServeDir::new(&dir));
+        }
 
         let tls_enabled = self._tls;
 
