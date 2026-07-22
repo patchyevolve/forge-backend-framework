@@ -1,0 +1,10 @@
+[package]
+name = "forge-backend"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+description = "This crate has been renamed to forgecore-backend-framework-daemon"
+repository = "https://github.com/patchyevolve/forge-backend-framework"
+
+[dependencies]
+forgecore-backend-framework-daemon = { version = "1.0", package = "forgecore-backend-framework-daemon" }

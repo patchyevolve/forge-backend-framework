@@ -32,7 +32,7 @@ plugin     plugin
 
 ```bash
 # Install forge (pre-built binary)
-# curl -fsSL https://forge.dev/install.sh | sh
+# curl -fsSL https://raw.githubusercontent.com/patchyevolve/forge-backend-framework/master/install.sh | sh
 
 # Or build from source
 git clone https://github.com/patchyevolve/forge-backend-framework
@@ -52,8 +52,8 @@ forge run
 Your backend is now live at `http://localhost:9091`:
 
 ```bash
-curl http://localhost:9091/health
-# {"payload":{"status":"ok","uptime_seconds":3,"version":"0.1.0"}}
+curl http://localhost:9091/healthz
+# {"status":"ok"}
 
 curl -X POST http://localhost:9091/login \
   -H "Content-Type: application/json" \

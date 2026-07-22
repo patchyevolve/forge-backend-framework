@@ -301,17 +301,19 @@ impl Manager {
                 args,
                 working_dir,
             } => {
-                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+                let sock = tokio::net::TcpSocket::new_v4()?;
+                sock.set_reuseaddr(true)?;
+                sock.bind("127.0.0.1:0".parse()?)?;
+                let listener = sock.listen(1024)?;
                 let addr = listener.local_addr()?;
                 let listen_addr = format!("{}:{}", addr.ip(), addr.port());
-                let callback_addr = format!("http://{listen_addr}");
 
                 drop(listener);
 
                 let mut cmd = tokio::process::Command::new(executable);
                 cmd.args(args)
                     .env("FORGE_LISTEN_ADDR", &listen_addr)
-                    .env("FORGE_CALLBACK_ADDR", &callback_addr)
+                    .env("FORGE_CALLBACK_ADDR", &listen_addr)
                     .env("FORGE_PLUGIN_DIR", &discovered.directory);
                 let work_dir = working_dir.as_ref().map(|rel| {
                     if std::path::Path::new(rel).is_relative() {
@@ -336,7 +338,7 @@ impl Manager {
                 }
 
                 tokio::time::sleep(Duration::from_millis(200)).await;
-                let ep = Endpoint::new(callback_addr)?
+                let ep = Endpoint::new(format!("http://{listen_addr}"))?
                     .connect_timeout(Duration::from_secs(10))
                     .timeout(Duration::from_secs(30));
                 ep.connect().await?

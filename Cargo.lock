@@ -336,7 +336,7 @@ name = "embedded-minimal"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "tokio",
 ]
 
@@ -393,12 +393,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
+name = "forge-backend"
+version = "1.0.0"
+dependencies = [
+ "forgecore-backend-framework-daemon 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "forge-cli"
 version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "rustls",
  "serde",
  "serde_json",
@@ -412,7 +419,7 @@ name = "forge-example-custom-capability"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",
@@ -425,7 +432,7 @@ name = "forge-example-middleware"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",
@@ -438,7 +445,7 @@ name = "forge-example-multi-pipeline"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -449,7 +456,7 @@ name = "forge-example-multi-upper"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -460,7 +467,7 @@ name = "forge-example-streaming"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",
@@ -473,7 +480,7 @@ name = "forge-plugin-auth-jwt"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",
@@ -486,7 +493,7 @@ name = "forge-plugin-data-sqlite"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "rusqlite",
  "serde",
  "serde_json",
@@ -500,7 +507,7 @@ name = "forge-plugin-echo-rs"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -511,12 +518,26 @@ name = "forge-plugin-http-router"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "forge-plugin-sdk-rust"
+version = "1.0.0"
+dependencies = [
+ "forgecore-backend-framework-daemon 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "forge-proto"
+version = "1.0.0"
+dependencies = [
+ "forgecore-backend-framework-daemon 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -540,6 +561,40 @@ dependencies = [
  "serde",
  "serde_json",
  "temp-env",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "toml",
+ "tonic",
+ "tonic-build",
+ "tower-http",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "forgecore-backend-framework-daemon"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ff7b96844e851fe4c4d5fa083e1e565bb6cfd0cfd4f0beb26bbbe669119c386"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "base64",
+ "bytes",
+ "dashmap",
+ "hyper",
+ "hyper-util",
+ "prometheus",
+ "prost",
+ "protoc-bin-vendored",
+ "rustls",
+ "rustls-pemfile",
+ "semver",
+ "serde",
+ "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "tokio-rustls",
@@ -1957,7 +2012,7 @@ name = "tutorial-count"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1968,7 +2023,7 @@ name = "tutorial-ingest"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",
@@ -1981,7 +2036,7 @@ name = "tutorial-process"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",
@@ -1994,7 +2049,7 @@ name = "tutorial-store"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "forgecore-backend-framework-daemon",
+ "forgecore-backend-framework-daemon 1.0.0",
  "serde",
  "serde_json",
  "tokio",

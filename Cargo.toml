@@ -17,6 +17,9 @@ members = [
     "examples/tutorial/process",
     "examples/tutorial/store",
     "examples/tutorial/count",
+    "redirect/forge-backend",
+    "redirect/forge-plugin-sdk-rust",
+    "redirect/forge-proto",
 ]
 
 [workspace.package]
