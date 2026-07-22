@@ -46,7 +46,7 @@ Bootstrap a new project:
 forge init my-project
 cd my-project
 cargo build --release
-forge run
+forge run            # make sure forge is on your PATH
 ```
 
 Your backend is now live at `http://localhost:9091`:

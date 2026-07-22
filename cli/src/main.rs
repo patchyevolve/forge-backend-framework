@@ -35,7 +35,7 @@ struct CapabilityStatusEntry {
 #[derive(Parser)]
 #[command(
     name = "forge",
-    version = "1.0.0",
+    version = env!("CARGO_PKG_VERSION"),
     about = "Backend operating environment",
     long_about = "\
 Forge is a single binary that spawns, supervises, and routes requests to
@@ -427,7 +427,7 @@ edition = "2021"
 license = "MIT"
 
 [workspace.dependencies]
-forge = "1.0"
+forge = { package = "forgecore-backend-framework-daemon", version = "1.0" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 tracing = "0.1"
@@ -1028,7 +1028,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-forge = "1.0"
+forge = {{ package = "forgecore-backend-framework-daemon", version = "1.0" }}
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
