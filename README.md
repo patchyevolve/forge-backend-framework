@@ -50,7 +50,7 @@ forge run                   # make sure forge is on your PATH
 ```
 
 Your backend is now live at `http://localhost:9091`.
-If you have a frontend in `frontend/`, it's served at `http://localhost:9091` too (`static_dir = "frontend"` in forge.toml):
+If you have a frontend in `frontend/`, it's served at `http://localhost:9091/static/` (`static_dir = "frontend"` in forge.toml):
 
 ```bash
 curl http://localhost:9091/healthz

@@ -253,7 +253,7 @@ tls = false
 # tls_cert_path = "/etc/forge/cert.pem"
 # tls_key_path = "/etc/forge/key.pem"
 
-# Static file serving (optional, serves a directory at `/`)
+# Static file serving (optional, serves a directory at `/static/`)
 static_dir = "frontend"
 
 # CORS (comma-separated origins)
