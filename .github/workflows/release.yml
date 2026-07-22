@@ -56,7 +56,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp install.sh install.sh
           gh release create ${{ github.ref_name }} install.sh *.tar.gz *.sha256 \
             --title "${{ github.ref_name }}" \
             --notes "See https://crates.io/crates/forgecore-backend-framework-daemon/${{ github.ref_name }} for changelog"
