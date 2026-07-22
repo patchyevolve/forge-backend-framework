@@ -6,8 +6,7 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.target }}
     strategy:
       matrix:
         include:
@@ -19,36 +18,35 @@ jobs:
             os: macos-latest
           - target: aarch64-apple-darwin
             os: macos-latest
-
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
         with:
-          target: ${{ matrix.target }}
-
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
-
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }} -p forge-cli
-
-      - name: Package archive
-        shell: bash
+      - name: Install musl-tools
+        if: contains(matrix.target, 'linux-musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Build
+        run: cargo build --release -p forge-cli --target ${{ matrix.target }}
+      - name: Package
         run: |
-          cd target/${{ matrix.target }}/release
-          tar czf forge-${{ matrix.target }}.tar.gz forge
-          sha256sum forge-${{ matrix.target }}.tar.gz > forge-${{ matrix.target }}.tar.gz.sha256
-
-      - name: Upload artifacts
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/forge dist/
+          tar czf forge-${{ matrix.target }}.tar.gz -C dist forge
+          if command -v sha256sum; then
+            sha256sum forge-${{ matrix.target }}.tar.gz > forge-${{ matrix.target }}.tar.gz.sha256
+          else
+            shasum -a 256 forge-${{ matrix.target }}.tar.gz > forge-${{ matrix.target }}.tar.gz.sha256
+          fi
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: forge-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/forge-${{ matrix.target }}.tar.gz*
+          path: forge-${{ matrix.target }}.tar.gz*
 
   release:
-    name: Create release
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -58,9 +56,8 @@ jobs:
         with:
           pattern: forge-*
           merge-multiple: true
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: forge-*.tar.gz*
-          generate_release_notes: true
+      - name: Attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload ${{ github.ref_name }} *.tar.gz *.sha256 --clobber
