@@ -11,8 +11,8 @@ use axum::{
     routing::{get, post},
 };
 use prometheus::{
-    CounterVec, HistogramVec, Registry as PromRegistry,
-    register_counter_vec_with_registry, register_histogram_vec_with_registry,
+    CounterVec, HistogramVec, Registry as PromRegistry, register_counter_vec_with_registry,
+    register_histogram_vec_with_registry,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
