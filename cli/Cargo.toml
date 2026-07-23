@@ -3,13 +3,15 @@ name = "forge-cli"
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true
+description = "Forge CLI — runtime and tooling for the Forge backend operating environment"
+repository = "https://github.com/patchyevolve/forge-backend-framework"
 
 [[bin]]
 name = "forge"
 path = "src/main.rs"
 
 [dependencies]
-forge = { package = "forgecore-backend-framework-daemon", path = "../forge" }
+forge = { package = "forgecore-backend-framework-daemon", version = "1.0", path = "../forge" }
 tokio.workspace = true
 clap = { workspace = true, features = ["derive"] }
 tracing.workspace = true
