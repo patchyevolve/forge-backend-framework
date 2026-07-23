@@ -149,7 +149,6 @@ impl Manager {
             }
             existing.health_failures = 0;
             existing.restart_scheduled = false;
-            existing.watch_restart_attempts = 0;
         } else {
             map.insert(
                 name.to_string(),
@@ -352,11 +351,40 @@ impl Manager {
                     }
                 }
 
-                tokio::time::sleep(Duration::from_millis(200)).await;
+                // Wait for the plugin process to start its gRPC server.
+                // Retry TCP connect in a loop so we don't race the plugin startup.
+                let tcp_timeout = Duration::from_secs(10);
+                let tcp_start = tokio::time::Instant::now();
+                let addr: std::net::SocketAddr = listen_addr
+                    .parse()
+                    .map_err(|e| anyhow::anyhow!("bad listen_addr {listen_addr}: {e}"))?;
+                loop {
+                    let r = tokio::time::timeout(
+                        Duration::from_secs(2),
+                        tokio::net::TcpStream::connect(addr),
+                    )
+                    .await;
+                    if matches!(r, Ok(Ok(_))) {
+                        // TCP connected — plugin is listening.
+                        // Drop our probe and let tonic do the full gRPC connect.
+                        break;
+                    }
+                    if tokio::time::Instant::now() - tcp_start >= tcp_timeout {
+                        anyhow::bail!(
+                            "plugin {plugin_name}: not reachable at {listen_addr} after {tcp_timeout:?}"
+                        );
+                    }
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                }
+
                 let ep = Endpoint::new(format!("http://{listen_addr}"))?
-                    .connect_timeout(Duration::from_secs(10))
-                    .timeout(Duration::from_secs(30));
-                ep.connect().await?
+                    .connect_timeout(Duration::from_secs(5))
+                    .timeout(Duration::from_secs(15));
+                ep.connect().await.map_err(|e| {
+                    anyhow::anyhow!(
+                        "plugin {plugin_name}: gRPC connect failed at {listen_addr}: {e}"
+                    )
+                })?
             }
         };
 
@@ -371,17 +399,24 @@ impl Manager {
             }
         }
 
-        // Handshake: call the Register RPC
+        // Handshake: call the Register RPC with a timeout
         let mut client = ForgePluginClient::new(channel.clone());
         let register_req = RegisterRequest {
             kernel_protocol_version: "1.0".into(),
             instance_id: Uuid::new_v4().to_string(),
         };
-        let register_resp = client
-            .register(register_req)
-            .await
-            .map_err(|e| anyhow::anyhow!("Register RPC failed: {e}"))?;
+        let register_resp =
+            tokio::time::timeout(Duration::from_secs(10), client.register(register_req))
+                .await
+                .map_err(|_| {
+                    anyhow::anyhow!("plugin {plugin_name}: Register RPC timed out after 10s")
+                })?
+                .map_err(|e| anyhow::anyhow!("plugin {plugin_name}: Register RPC failed: {e}"))?;
         let capabilities = register_resp.into_inner().capabilities;
+        tracing::info!(
+            "plugin {plugin_name}: Register OK — {} capability(ies)",
+            capabilities.len()
+        );
 
         // Tell the bus about this connection so it can route invocations
         let plugin_handle = PluginHandle {
@@ -637,6 +672,55 @@ impl Manager {
                 tracing::info!("plugin {name}: STOPPED → DISCOVERED (ready for restart)");
             }
             p.restart_attempts = 0;
+        }
+    }
+
+    /// Restart a plugin and immediately spawn the replacement (used by the HTTP restart endpoint).
+    pub async fn restart_and_spawn(&self, name: &str) {
+        let disc = {
+            let mut map = self.plugins.lock().await;
+            if let Some(p) = map.get(name)
+                && p.state != PluginState::Ready
+                && p.state != PluginState::Degraded
+            {
+                return;
+            }
+            if let Some(p) = map.get_mut(name)
+                && let Ok(()) = p
+                    .state
+                    .transition(PluginState::Draining)
+                    .map(|s| p.state = s)
+            {
+                tracing::info!("plugin {name}: operator restart — → DRAINING");
+            }
+            drop(map);
+
+            let mut map = self.plugins.lock().await;
+            Self::drain_plugin_inner(&mut map, name, &self.registry, &self.bus).await;
+
+            map.get_mut(name).and_then(|p| {
+                if let Ok(()) = p
+                    .state
+                    .transition(PluginState::Discovered)
+                    .map(|s| p.state = s)
+                {
+                    tracing::info!("plugin {name}: STOPPED → DISCOVERED (ready for restart)");
+                }
+                p.restart_attempts = 0;
+                p.discovered.clone()
+            })
+        };
+        if let Some(d) = disc
+            && let Err(e) = Self::start_one_impl(
+                d,
+                self.registry.clone(),
+                self.bus.clone(),
+                self.plugins.clone(),
+                self.restart_tx.clone(),
+            )
+            .await
+        {
+            tracing::error!("plugin {name}: restart spawn failed — {e}");
         }
     }
 

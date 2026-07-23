@@ -690,7 +690,7 @@ async fn plugin_restart(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Json<RestartResponse> {
-    state.manager.restart_plugin(&name).await;
+    state.manager.restart_and_spawn(&name).await;
     Json(RestartResponse {
         status: "restarting".into(),
         plugin: name,

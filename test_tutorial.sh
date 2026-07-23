@@ -231,7 +231,7 @@ else
 fi
 
 # Verify the terminal log message appears in forge's log output
-if grep -q "exhausted.*watch-retry.*giving up.*never reachable.*51999" "$FORGE_LOG"; then
+if grep -q "exhausted.*watch-retry.*giving up.*51999.*never reachable" "$FORGE_LOG"; then
     echo "  terminal log message  PASS"
 else
     echo "FAIL: no terminal exhaustion message in forge log"

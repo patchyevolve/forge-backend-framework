@@ -1374,9 +1374,9 @@ fn http_exchange(
     match plain_exchange(tcp, host, method, path, body) {
         Ok(resp) => Ok(resp),
         Err(e) => {
-            // If the error looks like a TLS-required scenario (connection
-            // reset during write/read, or non-HTTP response), retry with TLS.
-            if e.contains("write") || e.contains("connection reset") || e.contains("tls") {
+            // Auto-detect TLS: if plain HTTP got a read error (likely binary TLS
+            // data that isn't valid UTF-8) or a connection reset, retry with TLS.
+            if is_tls_like_error(&e) {
                 let tcp = match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
                     Ok(t) => t,
                     Err(e2) => return Err(format!("connect (tls fallback): {e2}")),
@@ -1506,6 +1506,18 @@ fn read_response(stream: &mut impl Read) -> Result<String, String> {
     } else {
         Ok(response)
     }
+}
+
+/// Check whether a plain-HTTP error indicates the server expected TLS.
+/// A TLS server receiving an HTTP/1.1 "GET /..." over the wire will see
+/// it as a malformed TLS ClientHello and respond with a binary TLS Alert
+/// (0x15) — which is not valid UTF-8.  Connection resets or write errors
+/// can also happen when the TLS layer rejects the plaintext upfront.
+fn is_tls_like_error(e: &str) -> bool {
+    e.contains("UTF-8")
+        || e.contains("connection reset")
+        || e.contains("tls")
+        || e.contains("write")
 }
 
 #[cfg(test)]
