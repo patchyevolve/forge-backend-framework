@@ -76,6 +76,9 @@ enum Commands {
         /// Draw a provides/requires graph from manifests — no need for a running kernel
         #[arg(long)]
         graph: bool,
+        /// Connect via TLS
+        #[arg(long)]
+        tls: bool,
     },
     /// Manage plugins
     Plugin {
@@ -108,6 +111,9 @@ enum PluginAction {
     Restart {
         /// Which plugin to restart
         name: String,
+        /// Connect via TLS
+        #[arg(long)]
+        tls: bool,
     },
 }
 
@@ -140,16 +146,16 @@ async fn main() -> anyhow::Result<()> {
             let config = auto_detect_config(config);
             cmd_run(config).await
         }
-        Commands::Status { config, graph } => {
+        Commands::Status { config, graph, tls } => {
             let config = auto_detect_config(config);
             if graph {
                 cmd_status_graph(config).await
             } else {
-                cmd_status().await
+                cmd_status(tls).await
             }
         }
         Commands::Plugin { action } => match action {
-            PluginAction::Restart { name } => cmd_plugin_restart(name).await,
+            PluginAction::Restart { name, tls } => cmd_plugin_restart(name, tls).await,
         },
         Commands::New { template } => match template {
             NewTemplate::Plugin { name, dir } => cmd_new_plugin(&name, dir),
@@ -257,7 +263,7 @@ async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
 
                 let states = w_manager.list_plugin_states().await;
                 for (name, state) in &states {
-                    if *state == PluginState::Connecting {
+                    if *state == PluginState::Connecting || *state == PluginState::Discovered {
                         tracing::info!(
                             "file-watch: retrying stuck plugin {name} (state {state:?})"
                         );
@@ -289,8 +295,8 @@ async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
 
 // Status
 
-async fn cmd_status() -> anyhow::Result<()> {
-    let body = http_get(DEFAULT_GATEWAY_ADDR, "/v1/status")
+async fn cmd_status(tls: bool) -> anyhow::Result<()> {
+    let body = http_get(DEFAULT_GATEWAY_ADDR, "/v1/status", tls)
         .map_err(|e| anyhow::anyhow!("failed to query kernel status: {e}"))?;
     let status: StatusResponse = serde_json::from_str(&body)
         .map_err(|e| anyhow::anyhow!("failed to parse status response: {e}"))?;
@@ -384,9 +390,9 @@ async fn cmd_status_graph(config_path: PathBuf) -> anyhow::Result<()> {
 
 // Plugin restart
 
-async fn cmd_plugin_restart(name: String) -> anyhow::Result<()> {
+async fn cmd_plugin_restart(name: String, tls: bool) -> anyhow::Result<()> {
     let path = format!("/v1/plugins/{name}/restart");
-    let body = http_post(DEFAULT_GATEWAY_ADDR, &path, "")
+    let body = http_post(DEFAULT_GATEWAY_ADDR, &path, "", tls)
         .map_err(|e| anyhow::anyhow!("failed to restart plugin: {e}"))?;
     println!("{body}");
     Ok(())
@@ -1333,47 +1339,144 @@ requires = []
     Ok(())
 }
 
-// Raw HTTP helpers (no external HTTP client dependency)
+// HTTP helpers with optional TLS support
 
-fn http_get(host: &str, path: &str) -> Result<String, String> {
-    let mut stream = TcpStream::connect_timeout(
-        &host.parse().map_err(|e| format!("bad addr: {e}"))?,
-        Duration::from_secs(5),
-    )
-    .map_err(|e| format!("connect: {e}"))?;
-    stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
-    stream.set_write_timeout(Some(Duration::from_secs(5))).ok();
-    let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|e| format!("write: {e}"))?;
-    let mut response = String::new();
-    stream
-        .read_to_string(&mut response)
-        .map_err(|e| format!("read: {e}"))?;
-    if let Some(body_start) = response.find("\r\n\r\n") {
-        Ok(response[body_start + 4..].to_string())
+fn http_get(host: &str, path: &str, use_tls: bool) -> Result<String, String> {
+    http_exchange(host, "GET", path, None, use_tls)
+}
+
+fn http_post(host: &str, path: &str, body: &str, use_tls: bool) -> Result<String, String> {
+    http_exchange(host, "POST", path, Some(body), use_tls)
+}
+
+fn http_exchange(
+    host: &str,
+    method: &str,
+    path: &str,
+    body: Option<&str>,
+    use_tls: bool,
+) -> Result<String, String> {
+    let addr: std::net::SocketAddr = host.parse().map_err(|e| format!("bad addr: {e}"))?;
+    let hostname = host.split(':').next().unwrap_or(host);
+
+    let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
+        .map_err(|e| format!("connect: {e}"))?;
+    tcp.set_read_timeout(Some(Duration::from_secs(10))).ok();
+    tcp.set_write_timeout(Some(Duration::from_secs(5))).ok();
+
+    if use_tls {
+        tls_exchange(hostname, tcp, host, method, path, body)
     } else {
-        Ok(response)
+        plain_exchange(tcp, host, method, path, body)
     }
 }
 
-fn http_post(host: &str, path: &str, body: &str) -> Result<String, String> {
-    let mut stream = TcpStream::connect_timeout(
-        &host.parse().map_err(|e| format!("bad addr: {e}"))?,
-        Duration::from_secs(5),
-    )
-    .map_err(|e| format!("connect: {e}"))?;
-    stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
-    stream.set_write_timeout(Some(Duration::from_secs(5))).ok();
-    let request = format!(
-        "POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        body.len(),
-        body
-    );
+fn plain_exchange(
+    stream: TcpStream,
+    host: &str,
+    method: &str,
+    path: &str,
+    body: Option<&str>,
+) -> Result<String, String> {
+    let mut stream = stream;
+    let request = build_request(host, method, path, body);
     stream
         .write_all(request.as_bytes())
         .map_err(|e| format!("write: {e}"))?;
+    read_response(&mut stream)
+}
+
+fn tls_exchange(
+    hostname: &str,
+    tcp: TcpStream,
+    host: &str,
+    method: &str,
+    path: &str,
+    body: Option<&str>,
+) -> Result<String, String> {
+    use rustls::pki_types::ServerName;
+    use std::sync::Arc;
+
+    #[derive(Debug)]
+    struct AcceptAllVerifier;
+    impl rustls::client::danger::ServerCertVerifier for AcceptAllVerifier {
+        fn verify_server_cert(
+            &self,
+            _end_entity: &rustls::pki_types::CertificateDer<'_>,
+            _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+            _server_name: &rustls::pki_types::ServerName<'_>,
+            _ocsp_response: &[u8],
+            _now: rustls::pki_types::UnixTime,
+        ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+            Ok(rustls::client::danger::ServerCertVerified::assertion())
+        }
+        fn verify_tls12_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+            Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        }
+        fn verify_tls13_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+            Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        }
+        fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+            vec![
+                rustls::SignatureScheme::RSA_PKCS1_SHA256,
+                rustls::SignatureScheme::RSA_PKCS1_SHA384,
+                rustls::SignatureScheme::RSA_PKCS1_SHA512,
+                rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+                rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
+                rustls::SignatureScheme::RSA_PSS_SHA256,
+                rustls::SignatureScheme::RSA_PSS_SHA384,
+                rustls::SignatureScheme::RSA_PSS_SHA512,
+                rustls::SignatureScheme::ED25519,
+            ]
+        }
+    }
+
+    let config = Arc::new(
+        rustls::ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(AcceptAllVerifier))
+            .with_no_client_auth(),
+    );
+
+    let server_name =
+        ServerName::try_from(hostname.to_string()).map_err(|e| format!("bad hostname: {e}"))?;
+    let conn =
+        rustls::ClientConnection::new(config, server_name).map_err(|e| format!("tls: {e}"))?;
+
+    let mut stream = rustls::StreamOwned::new(conn, tcp);
+    let request = build_request(host, method, path, body);
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|e| format!("write: {e}"))?;
+    read_response(&mut stream)
+}
+
+fn build_request(host: &str, method: &str, path: &str, body: Option<&str>) -> String {
+    if let Some(body) = body {
+        format!(
+            "{method} {path} HTTP/1.1\r\n\
+             Host: {host}\r\n\
+             Content-Type: application/json\r\n\
+             Content-Length: {}\r\n\
+             Connection: close\r\n\r\n{body}",
+            body.len()
+        )
+    } else {
+        format!("{method} {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n")
+    }
+}
+
+fn read_response(stream: &mut impl Read) -> Result<String, String> {
     let mut response = String::new();
     stream
         .read_to_string(&mut response)

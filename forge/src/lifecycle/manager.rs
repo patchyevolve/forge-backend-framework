@@ -265,12 +265,13 @@ impl Manager {
         let instance_id = Uuid::new_v4().to_string();
         let drain_grace = manifest.lifecycle.drain_grace_period_ms;
 
-        // On restart the existing entry is Stopped — move it back to Discovered so the transition
-        // chain works. insert_or_update_plugin below will then push it to Connecting.
+        // On restart the existing entry may be Stopped or Discovered — move to Discovered
+        // if needed so the transition chain works.
+        // insert_or_update_plugin below will then push it to Connecting.
         {
             let mut map = plugins.lock().await;
             if let Some(p) = map.get_mut(&plugin_name)
-                && p.state == PluginState::Stopped
+                && p.state != PluginState::Discovered
                 && let Ok(new) = p.state.transition(PluginState::Discovered)
             {
                 p.state = new;
@@ -645,6 +646,18 @@ impl Manager {
 
         if is_runnable {
             self.restart_plugin(&name).await;
+            // Drain sets the state to Discovered — now push through to Connecting + start.
+            if let Err(e) = Self::start_one_impl(
+                discovered,
+                self.registry.clone(),
+                self.bus.clone(),
+                self.plugins.clone(),
+                self.restart_tx.clone(),
+            )
+            .await
+            {
+                tracing::error!("plugin {name}: failed to restart — {e}");
+            }
         } else {
             tracing::info!("plugin {name}: (re)starting — current state is not Ready/Degraded");
             if let Err(e) = Self::start_one_impl(

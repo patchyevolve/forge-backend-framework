@@ -11,8 +11,8 @@ use axum::{
     routing::{get, post},
 };
 use prometheus::{
-    Registry as PromRegistry, register_counter_vec_with_registry,
-    register_histogram_vec_with_registry,
+    CounterVec, HistogramVec, Registry as PromRegistry,
+    register_counter_vec_with_registry, register_histogram_vec_with_registry,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -110,6 +110,23 @@ impl HttpGateway {
         }
 
         let metrics_registry = PromRegistry::new();
+
+        // Register HTTP metrics
+        let http_requests = register_counter_vec_with_registry!(
+            "forge_http_requests_total",
+            "Total HTTP requests",
+            &["method", "path", "status"],
+            metrics_registry.clone(),
+        )
+        .unwrap();
+        let http_duration = register_histogram_vec_with_registry!(
+            "forge_http_request_duration_seconds",
+            "HTTP request duration in seconds",
+            &["method", "path"],
+            metrics_registry.clone(),
+        )
+        .unwrap();
+
         let app_state = AppState {
             registry: self.registry,
             bus: self.bus,
@@ -119,6 +136,8 @@ impl HttpGateway {
             routes: Arc::new(compiled_routes),
             max_body_size: self.max_body_size,
             metrics_registry,
+            http_requests,
+            http_duration,
         };
 
         // Build router with all routes + fallback, THEN inject state.
@@ -130,22 +149,6 @@ impl HttpGateway {
         // otherwise the compiler infers S2 = AppState instead of S2 = ().
         let need_cors = !self.cors_allowed_origins.is_empty();
         let cors_origins = Arc::new(self.cors_allowed_origins.clone());
-
-        // Register default prometheus metrics
-        let _http_requests = register_counter_vec_with_registry!(
-            "forge_http_requests_total",
-            "Total HTTP requests",
-            &["method", "path", "status"],
-            app_state.metrics_registry.clone(),
-        )
-        .unwrap();
-        let _http_duration = register_histogram_vec_with_registry!(
-            "forge_http_request_duration_seconds",
-            "HTTP request duration in seconds",
-            &["method", "path"],
-            app_state.metrics_registry.clone(),
-        )
-        .unwrap();
 
         let mut rb = Router::new()
             .route("/healthz", get(healthz))
@@ -241,6 +244,30 @@ impl HttpGateway {
             ));
             tracing::info!("CORS enabled for origins: {:?}", cors_origins);
         }
+
+        // Metrics middleware — records request count, status, and duration for every request.
+        rb = rb.layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            |State(state): State<AppState>,
+             req: axum::http::Request<axum::body::Body>,
+             next: axum::middleware::Next| async move {
+                let start = std::time::Instant::now();
+                let method = req.method().to_string();
+                let path = req.uri().path().to_string();
+                let response = next.run(req).await;
+                let status = response.status().as_u16().to_string();
+                let duration = start.elapsed();
+                state
+                    .http_requests
+                    .with_label_values(&[&method, &path, &status])
+                    .inc();
+                state
+                    .http_duration
+                    .with_label_values(&[&method, &path])
+                    .observe(duration.as_secs_f64());
+                response
+            },
+        ));
 
         // Use a fresh binding so S2 is NOT constrained by the LHS type.
         let mut router = rb.with_state(app_state);
@@ -467,6 +494,8 @@ struct AppState {
     routes: Arc<Vec<CompiledRoute>>,
     max_body_size: u64,
     metrics_registry: PromRegistry,
+    http_requests: CounterVec,
+    http_duration: HistogramVec,
 }
 
 // Global rate limiter (counts across all IPs)

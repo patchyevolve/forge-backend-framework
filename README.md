@@ -147,6 +147,9 @@ Forge provides:
 - **Prometheus metrics** — `/metrics` endpoint
 - **CORS** — configurable origins
 - **File watching** — hot-reload plugin manifests
+- **CLI TLS support** — `forge status --tls` and `forge plugin restart --tls`
+- **Static file serving** — serve a frontend directory at `/static/`
+- **Redirect crates** — `forge-backend`, `forge-plugin-sdk-rust`, `forge-proto` on crates.io
 
 ## Deployment
 
@@ -177,7 +180,7 @@ Benchmarked on AMD Ryzen 7 7735HS, release mode.
 
 ## Status
 
-v1.0.0 — API stable.
+v1.0.5 — API stable.
 
 ## Documentation
 
