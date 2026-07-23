@@ -302,6 +302,20 @@ impl Manager {
                 args,
                 working_dir,
             } => {
+                // Kill any previous child from a failed retry attempt
+                {
+                    let mut map = plugins.lock().await;
+                    if let Some(p) = map.get_mut(&plugin_name)
+                        && let Some(mut child) = p.child.take()
+                    {
+                        tracing::warn!(
+                            "plugin {plugin_name}: killing orphan child from previous attempt"
+                        );
+                        let _ = child.start_kill();
+                        let _ = tokio::time::timeout(Duration::from_secs(3), child.wait()).await;
+                    }
+                }
+
                 let sock = tokio::net::TcpSocket::new_v4()?;
                 sock.set_reuseaddr(true)?;
                 sock.bind("127.0.0.1:0".parse()?)?;

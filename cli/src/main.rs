@@ -139,6 +139,12 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
+    // Install the rustls crypto provider. Both aws-lc-rs and ring features may be
+    // enabled (tonic pulls in aws-lc-rs via its tls feature, forge-gateway pulls in
+    // ring via rustls defaults), so we must explicitly pick one.
+    // This must happen before any TLS connection attempt (including CLI --tls).
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     let cli = Cli::parse();
 
     match cli.command {
@@ -180,11 +186,6 @@ fn auto_detect_config(config: PathBuf) -> PathBuf {
 // Run
 
 async fn cmd_run(config_path: PathBuf) -> anyhow::Result<()> {
-    // Install the rustls crypto provider. Both aws-lc-rs and ring features may be
-    // enabled (tonic pulls in aws-lc-rs via its tls feature, forge-gateway pulls in
-    // ring via rustls defaults), so we must explicitly pick one.
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-
     let loader = ConfigLoader::new().with_config_path(&config_path);
     let config = loader.load_config()?;
 
@@ -1365,9 +1366,28 @@ fn http_exchange(
     tcp.set_write_timeout(Some(Duration::from_secs(5))).ok();
 
     if use_tls {
-        tls_exchange(hostname, tcp, host, method, path, body)
-    } else {
-        plain_exchange(tcp, host, method, path, body)
+        return tls_exchange(hostname, tcp, host, method, path, body);
+    }
+
+    // Auto-detect: try plain first, fall back to TLS if the server
+    // responds with TLS handshake data instead of plain HTTP.
+    match plain_exchange(tcp, host, method, path, body) {
+        Ok(resp) => Ok(resp),
+        Err(e) => {
+            // If the error looks like a TLS-required scenario (connection
+            // reset during write/read, or non-HTTP response), retry with TLS.
+            if e.contains("write") || e.contains("connection reset") || e.contains("tls") {
+                let tcp = match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
+                    Ok(t) => t,
+                    Err(e2) => return Err(format!("connect (tls fallback): {e2}")),
+                };
+                tcp.set_read_timeout(Some(Duration::from_secs(10))).ok();
+                tcp.set_write_timeout(Some(Duration::from_secs(5))).ok();
+                tls_exchange(hostname, tcp, host, method, path, body)
+            } else {
+                Err(e)
+            }
+        }
     }
 }
 

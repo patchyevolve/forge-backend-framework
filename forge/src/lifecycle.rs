@@ -59,6 +59,8 @@ impl PluginState {
 
             // Re-entry from Stopped means going back to Discovered — either hot-reload or operator restart
             (Stopped, Discovered) => Ok(target),
+            // Retry: allow restarting from Connecting back to Discovered so the lifecycle picks it up again
+            (Connecting, Discovered) => Ok(target),
 
             _ => Err(InvalidTransition { from: self, to: target }),
         }
