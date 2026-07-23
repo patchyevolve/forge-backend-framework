@@ -1360,29 +1360,33 @@ fn http_exchange(
     let addr: std::net::SocketAddr = host.parse().map_err(|e| format!("bad addr: {e}"))?;
     let hostname = host.split(':').next().unwrap_or(host);
 
-    let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
-        .map_err(|e| format!("connect: {e}"))?;
-    tcp.set_read_timeout(Some(Duration::from_secs(10))).ok();
-    tcp.set_write_timeout(Some(Duration::from_secs(5))).ok();
-
     if use_tls {
+        let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
+            .map_err(|e| format!("connect: {e}"))?;
         return tls_exchange(hostname, tcp, host, method, path, body);
     }
 
     // Auto-detect: try plain first, fall back to TLS if the server
     // responds with TLS handshake data instead of plain HTTP.
+    let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
+        .map_err(|e| format!("connect: {e}"))?;
+    tcp.set_write_timeout(Some(Duration::from_secs(5))).ok();
     match plain_exchange(tcp, host, method, path, body) {
-        Ok(resp) => Ok(resp),
+        Ok(resp) => {
+            // Some TLS servers respond to plain HTTP with "400 Bad Request"
+            // in plaintext (valid UTF-8). Detect this and fall back to TLS.
+            if is_tls_mismatch_response(&resp) {
+                let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
+                    .map_err(|e| format!("connect (tls fallback): {e}"))?;
+                tls_exchange(hostname, tcp, host, method, path, body)
+            } else {
+                Ok(resp)
+            }
+        }
         Err(e) => {
-            // Auto-detect TLS: if plain HTTP got a read error (likely binary TLS
-            // data that isn't valid UTF-8) or a connection reset, retry with TLS.
             if is_tls_like_error(&e) {
-                let tcp = match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
-                    Ok(t) => t,
-                    Err(e2) => return Err(format!("connect (tls fallback): {e2}")),
-                };
-                tcp.set_read_timeout(Some(Duration::from_secs(10))).ok();
-                tcp.set_write_timeout(Some(Duration::from_secs(5))).ok();
+                let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(5))
+                    .map_err(|e| format!("connect (tls fallback): {e}"))?;
                 tls_exchange(hostname, tcp, host, method, path, body)
             } else {
                 Err(e)
@@ -1518,6 +1522,19 @@ fn is_tls_like_error(e: &str) -> bool {
         || e.contains("connection reset")
         || e.contains("tls")
         || e.contains("write")
+}
+
+/// Check whether a plain-HTTP response body indicates the server expected TLS.
+/// TLS servers may respond to plain HTTP with:
+/// - "400 Bad Request" in plaintext (valid UTF-8)
+/// - A raw TLS Alert (e.g. 15 03 03 ...) whose bytes happen to be valid UTF-8
+///   but are not valid JSON or HTTP.
+///
+/// The forge API always returns JSON, so anything that doesn't start with `{`
+/// or `[` is likely a TLS mismatch.
+fn is_tls_mismatch_response(body: &str) -> bool {
+    let b = body.trim();
+    !b.starts_with('{') && !b.starts_with('[')
 }
 
 #[cfg(test)]
