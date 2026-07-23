@@ -155,7 +155,7 @@ impl HttpGateway {
             .route("/v1/healthz", get(healthz))
             .route("/v1/status", get(status))
             .route("/v1/invoke", post(invoke))
-            .route("/v1/plugins/{name}/restart", post(plugin_restart))
+            .route("/v1/plugins/:name/restart", post(plugin_restart))
             .route("/metrics", get(metrics_handler))
             .fallback(declarative_handler);
 
