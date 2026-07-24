@@ -26,6 +26,8 @@ struct ManagedPlugin {
     restart_attempts: u32,
     /// True when a restart is already queued — stops us from double-spawning
     restart_scheduled: bool,
+    /// True while a start operation is in progress (guards against concurrent spawns).
+    starting: bool,
     /// How many times the file-watcher has retried connecting to this plugin.
     /// Separate from restart_attempts (which counts post-registration crash cycles)
     /// because "never came up" and "came up then crashed" are genuinely different
@@ -103,7 +105,7 @@ impl Manager {
                 tracing::info!("plugin {plugin_name}: restart in {delay}ms");
                 tokio::time::sleep(Duration::from_millis(delay)).await;
 
-                if let Err(e) = Self::start_one_impl(
+                if let Err(e) = Self::start_one(
                     req.discovered,
                     r_registry.clone(),
                     r_bus.clone(),
@@ -160,6 +162,7 @@ impl Manager {
                     discovered,
                     restart_attempts: 0,
                     restart_scheduled: false,
+                    starting: false,
                     watch_restart_attempts: 0,
                     child: None,
                 },
@@ -238,6 +241,36 @@ impl Manager {
         for handle in handles {
             let _ = handle.await;
         }
+    }
+
+    /// Start a plugin, skipping if another start is already in progress for this plugin name.
+    async fn start_one(
+        discovered: DiscoveredPlugin,
+        registry: Registry,
+        bus: Bus,
+        plugins: Arc<Mutex<HashMap<String, ManagedPlugin>>>,
+        restart_tx: mpsc::UnboundedSender<RestartRequest>,
+    ) -> anyhow::Result<()> {
+        let name = discovered.manifest.plugin.name.clone();
+        {
+            let mut map = plugins.lock().await;
+            if let Some(p) = map.get_mut(&name) {
+                if p.starting {
+                    tracing::debug!("plugin {name}: start already in progress, skipping");
+                    return Ok(());
+                }
+                p.starting = true;
+            }
+        }
+        let result =
+            Self::start_one_impl(discovered, registry, bus, plugins.clone(), restart_tx).await;
+        {
+            let mut map = plugins.lock().await;
+            if let Some(p) = map.get_mut(&name) {
+                p.starting = false;
+            }
+        }
+        result
     }
 
     /// Small wrapper that hands restart_tx through to the real start implementation.
@@ -711,7 +744,7 @@ impl Manager {
             })
         };
         if let Some(d) = disc
-            && let Err(e) = Self::start_one_impl(
+            && let Err(e) = Self::start_one(
                 d,
                 self.registry.clone(),
                 self.bus.clone(),
@@ -745,7 +778,7 @@ impl Manager {
         if is_runnable {
             self.restart_plugin(&name).await;
             // Drain sets the state to Discovered — now push through to Connecting + start.
-            if let Err(e) = Self::start_one_impl(
+            if let Err(e) = Self::start_one(
                 discovered,
                 self.registry.clone(),
                 self.bus.clone(),
@@ -758,7 +791,7 @@ impl Manager {
             }
         } else {
             tracing::info!("plugin {name}: (re)starting — current state is not Ready/Degraded");
-            if let Err(e) = Self::start_one_impl(
+            if let Err(e) = Self::start_one(
                 discovered,
                 self.registry.clone(),
                 self.bus.clone(),
@@ -831,7 +864,7 @@ impl Manager {
             tracing::error!("plugin {name}: cannot retry — no cached manifest (BUG)");
             return false;
         };
-        if let Err(e) = Self::start_one_impl(
+        if let Err(e) = Self::start_one(
             d,
             self.registry.clone(),
             self.bus.clone(),

@@ -94,10 +94,11 @@ impl Registry {
         });
     }
 
-    /// Remove every capability this plugin handle registered. Called when the plugin goes into STOPPED.
+    /// Remove every capability registered by this plugin name. Called when the plugin goes into STOPPED.
+    /// Matches on `plugin_name` only (instance_id may not be available at the call site).
     pub fn deregister(&self, plugin_handle: &PluginHandle) {
         self.inner.retain(|_key, entries| {
-            entries.retain(|e| e.plugin_handle != *plugin_handle);
+            entries.retain(|e| e.plugin_handle.plugin_name != plugin_handle.plugin_name);
             !entries.is_empty()
         });
     }
